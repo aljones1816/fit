@@ -16,6 +16,8 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   overflow-x: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
   /* iOS safe area support */
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
@@ -30,7 +32,7 @@ body {
 #screen {
   flex: 1;
   overflow-y: auto;
-  padding: 1rem;
+  padding: 0.5rem;
   padding-bottom: calc(1rem + 60px); /* space for tabs */
 }
 
@@ -41,7 +43,6 @@ body {
   left: 0;
   right: 0;
   background: var(--bg-secondary);
-  border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: space-around;
   padding-bottom: env(safe-area-inset-bottom);
@@ -50,15 +51,15 @@ body {
 
 .tab-button {
   flex: 1;
-  padding: 0.75rem;
+  padding: 0.5rem;
   background: none;
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: 0.625rem;
   text-align: center;
   transition: color 0.2s;
-  min-height: 60px;
+  min-height: 50px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -72,7 +73,6 @@ body {
 
 .tab-button.active {
   color: var(--accent);
-  font-weight: 600;
 }
 
 .tab-icon {
@@ -88,7 +88,7 @@ button {
 .btn {
   padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 1rem;
   font-weight: 600;
   transition: all 0.2s;
@@ -126,7 +126,7 @@ input, textarea {
   font-size: 1rem;
   padding: 0.75rem;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--bg-secondary);
   color: var(--text-primary);
   min-height: 48px;
@@ -150,10 +150,10 @@ input[type="number"]::-webkit-outer-spin-button {
 /* Cards */
 .card {
   background: var(--bg-secondary);
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 1rem;
-  margin-bottom: 1rem;
-  border: 1px solid var(--border-color);
+  margin: 0.5rem;
+  border: none;
 }
 
 .card-header {
@@ -228,7 +228,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .modal {
   background: var(--bg-secondary);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 1.5rem;
   max-width: 500px;
   width: 100%;

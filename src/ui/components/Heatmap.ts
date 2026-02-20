@@ -48,30 +48,52 @@ export function renderHeatmap(sessions: Session[]): string {
   // Pad end so total length is a multiple of 7
   while (cells.length % 7 !== 0) cells.push(null);
 
+  const numCols = Math.ceil(cells.length / 7);
+
   // Render — CSS grid with 7 rows, auto-flow column does the rest
   const cellHtml = cells.map(cell => {
     if (!cell || !cell.dateStr) {
-      return `<div style="width:13px;height:13px;"></div>`;
+      return `<div></div>`;
     }
     const intensity = Math.min(cell.count, 3);
     const color = getHeatmapColor(intensity);
     const label = cell.count > 0
       ? `${cell.dateStr}: ${cell.count} workout${cell.count !== 1 ? 's' : ''}`
       : cell.dateStr;
-    return `<div title="${label}" style="width:13px;height:13px;background:${color};border-radius:2px;"></div>`;
+    return `<div title="${label}" style="background:${color};border-radius:2px;"></div>`;
   }).join('');
 
   return `
-    <div style="overflow-x:auto;padding:0.25rem 0;">
-      <div style="display:grid;grid-template-rows:repeat(7,13px);grid-auto-flow:column;gap:3px;width:max-content;">
-        ${cellHtml}
+    <div style="padding:0.25rem 0;">
+      <div 
+        style="
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          padding-bottom: 0.5rem;
+        "
+      >
+        <div 
+          style="
+            --num-cols: ${numCols};
+            --gap: 4px;
+            --cell-size: clamp(13px, 2.5vw, 18px);
+            display:grid;
+            grid-template-rows:repeat(7, var(--cell-size));
+            grid-auto-flow:column;
+            grid-auto-columns: var(--cell-size);
+            gap:var(--gap);
+            width: max-content;
+          "
+        >
+          ${cellHtml}
+        </div>
       </div>
       <div style="display:flex;gap:0.5rem;align-items:center;margin-top:0.5rem;font-size:0.75rem;color:var(--text-secondary);">
         <span>Less</span>
-        <div style="width:13px;height:13px;background:${getHeatmapColor(0)};border-radius:2px;"></div>
-        <div style="width:13px;height:13px;background:${getHeatmapColor(1)};border-radius:2px;"></div>
-        <div style="width:13px;height:13px;background:${getHeatmapColor(2)};border-radius:2px;"></div>
-        <div style="width:13px;height:13px;background:${getHeatmapColor(3)};border-radius:2px;"></div>
+        <div style="width:var(--cell-size);height:var(--cell-size);max-width:14px;max-height:14px;background:${getHeatmapColor(0)};border-radius:2px;"></div>
+        <div style="width:var(--cell-size);height:var(--cell-size);max-width:14px;max-height:14px;background:${getHeatmapColor(1)};border-radius:2px;"></div>
+        <div style="width:var(--cell-size);height:var(--cell-size);max-width:14px;max-height:14px;background:${getHeatmapColor(2)};border-radius:2px;"></div>
+        <div style="width:var(--cell-size);height:var(--cell-size);max-width:14px;max-height:14px;background:${getHeatmapColor(3)};border-radius:2px;"></div>
         <span>More</span>
       </div>
     </div>
@@ -79,8 +101,21 @@ export function renderHeatmap(sessions: Session[]): string {
 }
 
 function getHeatmapColor(intensity: number): string {
+  const darkGreen = '48, 209, 88';
+  const lightGreen = '52, 199, 89';
+
+  let isDark = false;
+  const theme = document.documentElement.getAttribute('data-theme');
+  if (theme === 'dark') {
+    isDark = true;
+  } else if (theme === 'system') {
+    isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+
+  const green = isDark ? darkGreen : lightGreen;
+
   if (intensity === 0) return 'var(--bg-tertiary)';
-  if (intensity === 1) return '#0e4429';
-  if (intensity === 2) return '#006d32';
-  return '#26a641';
+  if (intensity === 1) return `rgba(${green}, 0.25)`;
+  if (intensity === 2) return `rgba(${green}, 0.5)`;
+  return `rgba(${green}, 1)`;
 }
