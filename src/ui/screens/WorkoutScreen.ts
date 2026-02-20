@@ -402,8 +402,11 @@ async function handleSetInputChange(e: Event) {
 
   await updateSetEntry(set);
 
-  // Re-render to update styling for blank rows
-  renderExercises();
+  // Update row opacity in-place — avoids a full re-render which causes scroll jumps
+  const row = input.closest('tr') as HTMLTableRowElement | null;
+  if (row) {
+    row.style.opacity = (set.reps === undefined || set.weightLbs === undefined) ? '0.5' : '';
+  }
 }
 
 async function handleAddSet(e: Event) {
