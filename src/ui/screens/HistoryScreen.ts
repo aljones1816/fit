@@ -17,7 +17,7 @@ import {
 import type { Session, SetEntry, Exercise, DisplayUnit, BodyweightEntry, ExercisePR } from '../../data/models';
 import { showToast } from '../components/Toast';
 import { showModal } from '../components/Modal';
-import { formatWeight, parseEnteredWeight, lbsToKg } from '../../data/units';
+import { formatWeight, parseEnteredWeight, lbsToKg, formatVolume } from '../../data/units';
 import { findBestE1RM } from '../../data/pr';
 
 let activeSubView: 'workouts' | 'weight' = 'workouts';
@@ -148,6 +148,12 @@ async function renderWorkoutsView(container: HTMLElement) {
       }
     }
 
+    // Total volume for this session
+    const filledAll = sets
+      .filter(s => s.reps !== undefined && s.weightLbs !== undefined)
+      .map(s => ({ reps: s.reps!, weightLbs: s.weightLbs! }));
+    const volumeStr = filledAll.length > 0 ? formatVolume(filledAll, displayUnit) : null;
+
     // For each exercise, check if this session's best e1rm matches the all-time PR
     const exerciseEntries = uniqueExerciseIds.map(exId => {
       const exName = exercisesCache.get(exId)?.name;
@@ -180,7 +186,7 @@ async function renderWorkoutsView(container: HTMLElement) {
         <div style="display:flex;justify-content:space-between;align-items:flex-start;${isExpanded ? 'margin-bottom:0.75rem;' : ''}">
           <div>
             <div style="font-weight:600;">${name}</div>
-            <div style="font-size:0.8rem;color:var(--text-secondary);">${dateStr} · ${mins} min</div>
+            <div style="font-size:0.8rem;color:var(--text-secondary);">${dateStr} · ${mins} min${volumeStr ? ` · ${volumeStr}` : ''}</div>
             ${exerciseListHtml}
           </div>
           <div style="display:flex;gap:0.5rem;flex-shrink:0;margin-left:0.5rem;">

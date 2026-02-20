@@ -23,6 +23,15 @@ export function formatWeight(weightLbs: number, displayUnit: DisplayUnit): strin
   return `${weightLbs.toFixed(1)} lb`;
 }
 
+export function formatVolume(
+  sets: Array<{ reps: number; weightLbs: number }>,
+  displayUnit: DisplayUnit,
+): string {
+  const totalLbs = sets.reduce((sum, s) => sum + s.reps * s.weightLbs, 0);
+  const value = displayUnit === 'kg' ? Math.round(totalLbs * LBS_TO_KG) : Math.round(totalLbs);
+  return `${value.toLocaleString()} ${displayUnit}`;
+}
+
 export function parseEnteredWeight(value: string, displayUnit: DisplayUnit): number {
   const num = parseFloat(value);
   if (isNaN(num)) return 0;

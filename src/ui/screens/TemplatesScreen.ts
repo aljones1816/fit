@@ -318,7 +318,12 @@ function showTemplateEditorModal(template?: Template) {
   const renderList = (query: string) => {
     const container = body.querySelector<HTMLElement>('#ex-selector-list')!;
     const q = query.toLowerCase().trim();
-    const visible = q ? sorted.filter(ex => ex.name.toLowerCase().includes(q)) : sorted;
+    const filtered = q ? sorted.filter(ex => ex.name.toLowerCase().includes(q)) : sorted;
+    // Checked items float to the top; within each group keep alphabetical order
+    const visible = [
+      ...filtered.filter(ex => selectedIds.has(ex.id)),
+      ...filtered.filter(ex => !selectedIds.has(ex.id)),
+    ];
 
     if (visible.length === 0) {
       container.innerHTML = `<div style="padding:0.75rem;color:var(--text-secondary);font-size:0.9rem;">No matches</div>`;

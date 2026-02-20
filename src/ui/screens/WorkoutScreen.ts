@@ -22,7 +22,7 @@ import {
 import type { Session, SetEntry, Exercise, ExerciseLast, DisplayUnit, Template, PRHit } from '../../data/models';
 import { showToast } from '../components/Toast';
 import { showModal } from '../components/Modal';
-import { formatWeight, parseEnteredWeight } from '../../data/units';
+import { formatWeight, parseEnteredWeight, formatVolume } from '../../data/units';
 import { renderTimer, attachTimerHandlers, initTimer } from '../components/Timer';
 
 let activeSession: Session | null = null;
@@ -642,6 +642,11 @@ function renderWorkoutCompleteScreen(
     return { name, sets, bestSet, weightDisplay, pr };
   });
 
+  const allFilledSets = filledSets
+    .filter(s => s.reps !== undefined && s.weightLbs !== undefined)
+    .map(s => ({ reps: s.reps!, weightLbs: s.weightLbs! }));
+  const volumeStr = formatVolume(allFilledSets, unit);
+
   const totalPRs = prHits.size;
   const headerEmoji = totalPRs > 0 ? '🏆' : '🎉';
   const headerText = totalPRs > 0
@@ -651,7 +656,7 @@ function renderWorkoutCompleteScreen(
   // Build Wordle-style share text
   const shareLines = [
     `💪 ${workoutTitle}`,
-    `⏱️ ${durationStr} · ${exerciseSummaries.length} exercise${exerciseSummaries.length !== 1 ? 's' : ''}`,
+    `⏱️ ${durationStr} · ${exerciseSummaries.length} exercise${exerciseSummaries.length !== 1 ? 's' : ''} · ${volumeStr} total`,
     ...(totalPRs > 0 ? [`🏆 ${totalPRs} new PR${totalPRs !== 1 ? 's' : ''}!`] : []),
     '',
     ...exerciseSummaries.map(e => {
@@ -669,7 +674,7 @@ function renderWorkoutCompleteScreen(
     <div style="display:flex;flex-direction:column;align-items:center;padding:2.5rem 1rem 1rem;text-align:center;">
       <div style="font-size:4rem;line-height:1;margin-bottom:1rem;">${headerEmoji}</div>
       <h1 style="margin-bottom:0.25rem;">${headerText}</h1>
-      <p style="color:var(--text-secondary);margin-bottom:1.5rem;">${workoutTitle} · ${durationStr}</p>
+      <p style="color:var(--text-secondary);margin-bottom:1.5rem;">${workoutTitle} · ${durationStr} · ${volumeStr} total</p>
 
       <div class="card mb-3" style="width:100%;text-align:left;">
         ${exerciseSummaries.map((e, i) => `
