@@ -5,12 +5,13 @@ import {
   getDisplayUnit,
   getAllBodyweightEntries,
   addBodyweightEntry,
+  updateBodyweightEntry,
 } from '../../data/queries';
 import type { Exercise, SetEntry, DisplayUnit } from '../../data/models';
 import { calculateE1RM } from '../../data/pr';
-import { showToast } from '../components/Toast';
+import { lbsToKg } from '../../data/units';
 import { showModal } from '../components/Modal';
-import { formatWeight, parseEnteredWeight, lbsToKg } from '../../data/units';
+import { showToast } from '../components/Toast';
 
 let selectedExercise: Exercise | null = null;
 let activeChartType: 'e1rm' | 'top' | 'volume' = 'e1rm';
@@ -30,10 +31,9 @@ export async function renderProgressScreen() {
       <div class="card mb-2">
         <div class="card-header" style="margin-bottom:0.75rem;">
           <h3 class="card-title">Bodyweight</h3>
-          <button class="btn btn-primary btn-small" id="log-bodyweight-btn">+ Log</button>
+          <button class="btn btn-primary btn-small" id="log-weight-btn">Log Today</button>
         </div>
         <div id="bodyweight-chart"></div>
-        <div id="bodyweight-list"></div>
       </div>
 
       <div class="card mb-2">
@@ -69,7 +69,7 @@ export async function renderProgressScreen() {
 
   await renderBodyweightSection();
 
-  document.getElementById('log-bodyweight-btn')?.addEventListener('click', handleLogBodyweight);
+  document.getElementById('log-weight-btn')?.addEventListener('click', handleLogTodayWeight);
 
   document.querySelectorAll('[data-chart-type]').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -174,17 +174,14 @@ async function renderBodyweightSection() {
   const sorted = entries.sort((a, b) => a.measuredAt - b.measuredAt);
 
   const chartContainer = document.getElementById('bodyweight-chart');
-  const listContainer = document.getElementById('bodyweight-list');
-  if (!chartContainer || !listContainer) return;
+  if (!chartContainer) return;
 
   if (sorted.length === 0) {
-    chartContainer.innerHTML = '';
-    listContainer.innerHTML = '<p class="text-muted" style="font-size:0.875rem;">No entries yet</p>';
+    chartContainer.innerHTML = '<p class="text-muted" style="font-size:0.875rem;">No entries yet. Add them from the Stats tab.</p>';
     return;
   }
 
-  // Chart
-  if (sorted.length >= 2) {
+  if (sorted.length >= 1) {
     try {
       const uPlot = (await import('uplot')).default;
       chartContainer.innerHTML = '';
@@ -193,6 +190,10 @@ async function renderBodyweightSection() {
       const weights = sorted.map(e =>
         displayUnit === 'kg' ? Math.round(lbsToKg(e.weightLbs) * 10) / 10 : e.weightLbs
       );
+
+      const style = getComputedStyle(document.documentElement);
+      const textColor = style.getPropertyValue('--text-secondary').trim() || '#888';
+      const gridColor = style.getPropertyValue('--border-color').trim() || '#333';
 
       const opts: any = {
         width: chartContainer.clientWidth || 340,
@@ -205,9 +206,13 @@ async function renderBodyweightSection() {
             stroke: '#4a9eff',
             width: 2,
             fill: 'rgba(74,158,255,0.08)',
+            points: { show: true, size: 6, fill: '#4a9eff' },
           },
         ],
-        axes: [{}, { label: displayUnit }],
+        axes: [
+          { stroke: textColor, grid: { stroke: gridColor } },
+          { label: displayUnit, stroke: textColor, grid: { stroke: gridColor } },
+        ],
         cursor: { show: false },
         legend: { show: false },
       };
@@ -216,59 +221,68 @@ async function renderBodyweightSection() {
     } catch {
       chartContainer.innerHTML = '';
     }
-  } else {
-    chartContainer.innerHTML = '<p class="text-muted" style="font-size:0.875rem;">Log at least 2 entries to see a chart</p>';
   }
-
-  // Recent list (last 5, newest first)
-  const recent = [...sorted].reverse().slice(0, 5);
-  listContainer.innerHTML = `
-    <div style="margin-top:0.75rem;">
-      ${recent.map(entry => `
-        <div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:0.5px solid var(--border-color);">
-          <span style="font-size:0.875rem;color:var(--text-secondary);">${new Date(entry.measuredAt).toLocaleDateString()}</span>
-          <span style="font-weight:500;">${formatWeight(entry.weightLbs, displayUnit)}</span>
-        </div>
-      `).join('')}
-    </div>
-  `;
 }
 
-function handleLogBodyweight() {
+async function handleLogTodayWeight() {
+  const entries = await getAllBodyweightEntries();
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const todayEntry = entries.find(e => {
+    const d = new Date(e.measuredAt);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` === todayStr;
+  });
+
+  const existingDisplay = todayEntry
+    ? (displayUnit === 'kg' ? (todayEntry.weightLbs * 0.45359237).toFixed(1) : todayEntry.weightLbs.toFixed(1))
+    : '';
+
   const body = document.createElement('div');
   body.innerHTML = `
     <input
       type="number"
       inputmode="decimal"
-      id="bodyweight-input"
-      placeholder="Enter weight (${displayUnit})"
+      id="log-weight-input"
+      placeholder="${existingDisplay || '0'}"
+      value="${existingDisplay}"
       step="${displayUnit === 'kg' ? '0.1' : '0.5'}"
-      style="width:100%;"
+      style="width:100%;padding:0.75rem;border:1px solid var(--border-color);border-radius:10px;background:var(--bg-secondary);color:var(--text-primary);font-size:1.25rem;text-align:center;"
     />
+    <div class="text-muted" style="font-size:0.8rem;margin-top:0.5rem;text-align:center;">${displayUnit}</div>
   `;
 
   showModal({
-    title: 'Log Bodyweight',
+    title: todayEntry ? "Update Today's Weight" : "Log Today's Weight",
     body,
     buttons: [
       { text: 'Cancel', className: 'btn btn-secondary', onClick: () => {} },
       {
-        text: 'Save',
+        text: todayEntry ? 'Update' : 'Save',
         className: 'btn btn-primary',
         onClick: async () => {
-          const input = document.getElementById('bodyweight-input') as HTMLInputElement;
-          const value = input?.value;
-          if (!value) { showToast('Please enter a weight', 'error'); return; }
-          const weightLbs = parseEnteredWeight(value, displayUnit);
-          await addBodyweightEntry(weightLbs);
-          showToast('Bodyweight logged', 'success');
-          renderProgressScreen();
+          const input = document.getElementById('log-weight-input') as HTMLInputElement;
+          const val = parseFloat(input.value);
+          if (!val || val <= 0) { showToast('Enter a valid weight', 'error'); return; }
+          const weightLbs = displayUnit === 'kg' ? val / 0.45359237 : val;
+          if (todayEntry) {
+            await updateBodyweightEntry({ ...todayEntry, weightLbs });
+            showToast('Weight updated', 'success');
+          } else {
+            const noon = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0).getTime();
+            await addBodyweightEntry(weightLbs, noon);
+            showToast('Weight logged', 'success');
+          }
+          renderBodyweightSection();
         },
       },
     ],
   });
 
-  setTimeout(() => document.getElementById('bodyweight-input')?.focus(), 100);
+  setTimeout(() => {
+    const input = document.getElementById('log-weight-input') as HTMLInputElement;
+    input?.focus();
+    input?.select();
+  }, 100);
 }
 
 // ─── Exercise chart ────────────────────────────────────────────────────────
@@ -335,6 +349,10 @@ async function renderExerciseChart() {
       : activeChartType === 'top' ? `Top Set (${unitLabel})`
       : `Volume (${unitLabel})`;
 
+    const style = getComputedStyle(document.documentElement);
+    const textColor = style.getPropertyValue('--text-secondary').trim() || '#888';
+    const gridColor = style.getPropertyValue('--border-color').trim() || '#333';
+
     const opts: any = {
       width: chartContainer.clientWidth || 340,
       height: 240,
@@ -343,7 +361,10 @@ async function renderExerciseChart() {
         {},
         { label: seriesLabel, stroke: '#4a9eff', width: 2, fill: 'rgba(74,158,255,0.08)' },
       ],
-      axes: [{}, { label: seriesLabel }],
+      axes: [
+        { stroke: textColor, grid: { stroke: gridColor } },
+        { label: seriesLabel, stroke: textColor, grid: { stroke: gridColor } },
+      ],
       cursor: { show: false },
       legend: { show: false },
     };

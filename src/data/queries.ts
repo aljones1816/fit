@@ -156,6 +156,15 @@ export async function getEndedSessions(): Promise<Session[]> {
   return all.filter(s => s.endedAt !== undefined);
 }
 
+export async function deleteSession(id: string): Promise<void> {
+  const db = await getDB();
+  const sets = await db.getAllFromIndex('sets', 'sessionId', id);
+  for (const set of sets) {
+    await db.delete('sets', set.id);
+  }
+  await db.delete('sessions', id);
+}
+
 // ===== SETS =====
 
 export async function createSetEntry(
@@ -257,11 +266,11 @@ export async function getExercisePR(exerciseId: string): Promise<ExercisePR | un
 
 // ===== BODYWEIGHT =====
 
-export async function addBodyweightEntry(weightLbs: number): Promise<BodyweightEntry> {
+export async function addBodyweightEntry(weightLbs: number, measuredAt: number = Date.now()): Promise<BodyweightEntry> {
   const db = await getDB();
   const entry: BodyweightEntry = {
     id: generateId(),
-    measuredAt: Date.now(),
+    measuredAt,
     weightLbs,
   };
   await db.add('bodyweight_entries', entry);
@@ -271,6 +280,16 @@ export async function addBodyweightEntry(weightLbs: number): Promise<BodyweightE
 export async function getAllBodyweightEntries(): Promise<BodyweightEntry[]> {
   const db = await getDB();
   return db.getAll('bodyweight_entries');
+}
+
+export async function updateBodyweightEntry(entry: BodyweightEntry): Promise<void> {
+  const db = await getDB();
+  await db.put('bodyweight_entries', entry);
+}
+
+export async function deleteBodyweightEntry(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('bodyweight_entries', id);
 }
 
 // ===== SETTINGS =====

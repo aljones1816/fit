@@ -1,11 +1,12 @@
 import { navigate } from '../../router';
 
-type Route = 'workout' | 'templates' | 'progress' | 'stats';
+type Route = 'workout' | 'templates' | 'progress' | 'history' | 'stats';
 
 const tabs: Array<{ route: Route; label: string; icon: string }> = [
   { route: 'workout', label: 'Workout', icon: '💪' },
   { route: 'templates', label: 'Templates', icon: '📋' },
   { route: 'progress', label: 'Progress', icon: '📈' },
+  { route: 'history', label: 'History', icon: '🕐' },
   { route: 'stats', label: 'Stats', icon: '📊' },
 ];
 

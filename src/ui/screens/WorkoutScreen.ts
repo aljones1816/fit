@@ -9,6 +9,7 @@ import {
   getExerciseLast,
   endSession,
   deleteBlankSets,
+  deleteSession,
   getTemplate,
   getDisplayUnit,
   getAllTemplates,
@@ -195,25 +196,48 @@ export async function renderWorkoutScreen() {
 
   screen.innerHTML = `
     <div>
-      <div class="mb-2" style="display: flex; justify-content: space-between; align-items: center;">
-        <h1 style="margin: 0;">${workoutTitle}</h1>
-        <div style="text-align:right;">
-          <div id="workout-duration" style="font-size:1.25rem;font-weight:600;font-variant-numeric:tabular-nums;">0:00</div>
-          <div class="text-muted" style="font-size:0.75rem;">
-            started ${new Date(activeSession.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      <!-- Fixed top bar: workout header + rest timer -->
+      <div id="workout-top-bar" style="
+        position:fixed;
+        top:env(safe-area-inset-top);
+        left:0;right:0;
+        background:var(--bg-primary);
+        border-bottom:0.5px solid var(--border-color);
+        padding:0.5rem;
+        z-index:50;
+      ">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+          <h1 style="margin:0;font-size:1.5rem;">${workoutTitle}</h1>
+          <div style="text-align:right;">
+            <div id="workout-duration" style="font-size:1.25rem;font-weight:600;font-variant-numeric:tabular-nums;">0:00</div>
+            <div class="text-muted" style="font-size:0.75rem;">
+              started ${new Date(activeSession.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </div>
           </div>
         </div>
+        ${renderTimer()}
       </div>
 
-      ${renderTimer()}
+      <!-- Exercises — padding-top set dynamically to clear the fixed top bar -->
+      <div id="workout-scroll-content">
+        <div id="exercises-container" style="padding-bottom:140px;"></div>
+      </div>
 
-      <div id="exercises-container"></div>
-
-      <div class="mt-3 mb-3" style="display:flex;flex-direction:column;gap:0.5rem;position:sticky;bottom:80px;z-index:50;">
+      <!-- Fixed bottom bar: workout actions -->
+      <div style="
+        display:flex;flex-direction:column;gap:0.5rem;
+        position:fixed;
+        bottom:calc(50px + env(safe-area-inset-bottom));
+        left:0;right:0;
+        padding:0.75rem;
+        background:var(--bg-primary);
+        border-top:0.5px solid var(--border-color);
+        z-index:50;
+      ">
         <button class="btn btn-secondary" id="add-exercise-btn" style="width:100%;">
           + Add Exercise
         </button>
-        <button class="btn btn-primary" id="end-workout-btn" style="width: 100%;">
+        <button class="btn btn-primary" id="end-workout-btn" style="width:100%;">
           End Workout
         </button>
       </div>
@@ -228,6 +252,15 @@ export async function renderWorkoutScreen() {
   // Initialize and attach timer handlers
   await initTimer();
   attachTimerHandlers();
+
+  // Measure the fixed top bar and push scroll content down accordingly
+  requestAnimationFrame(() => {
+    const topBar = document.getElementById('workout-top-bar');
+    const scrollContent = document.getElementById('workout-scroll-content');
+    if (topBar && scrollContent) {
+      scrollContent.style.paddingTop = topBar.offsetHeight + 'px';
+    }
+  });
 
   document.getElementById('add-exercise-btn')?.addEventListener('click', handleAddExerciseToWorkout);
   document.getElementById('end-workout-btn')?.addEventListener('click', handleEndWorkout);
@@ -543,9 +576,15 @@ async function finishWorkout() {
   if (durationInterval !== null) { clearInterval(durationInterval); durationInterval = null; }
 
   await deleteBlankSets(activeSession.id);
-  await endSession(activeSession.id);
 
-  showToast('Workout complete!', 'success');
+  const filledSets = sessionSets.filter(s => s.reps !== undefined && s.weightLbs !== undefined);
+  if (filledSets.length === 0) {
+    await deleteSession(activeSession.id);
+    showToast('Empty workout discarded', 'info');
+  } else {
+    await endSession(activeSession.id);
+    showToast('Workout complete!', 'success');
+  }
 
   // Reset state
   activeSession = null;

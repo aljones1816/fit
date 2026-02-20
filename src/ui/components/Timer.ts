@@ -7,7 +7,7 @@ let timerState: 'idle' | 'running' | 'finished' = 'idle';
 
 export function renderTimer(): string {
   return `
-    <div class="card mb-2" id="timer-card" style="background: var(--bg-tertiary);">
+    <div class="card" id="timer-card" style="background: var(--bg-tertiary);margin-bottom:0;">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
         <div style="flex: 1;">
           <div id="timer-display" style="font-size: 2rem; font-weight: 600; text-align: center;">
