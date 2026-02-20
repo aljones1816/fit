@@ -49,10 +49,10 @@ export async function renderProgressScreen() {
               placeholder="Search exercises…"
               autocomplete="off"
               value="${selectedExercise?.name ?? ''}"
-              style="width:100%;padding:0.75rem 2.5rem 0.75rem 0.75rem;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:1rem;"
+              style="width:100%;padding:0.75rem 2.5rem 0.75rem 0.75rem;border:1px solid var(--border-color);border-radius:10px;background:var(--bg-secondary);color:var(--text-primary);font-size:1rem;"
             />
             <span style="position:absolute;right:0.75rem;top:50%;transform:translateY(-50%);color:var(--text-secondary);pointer-events:none;">▾</span>
-            <div id="exercise-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;z-index:200;max-height:260px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.3);"></div>
+            <div id="exercise-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:10px;z-index:200;max-height:260px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.3);"></div>
           </div>
 
           <div id="chart-type-selector" class="flex gap-1 mb-2" style="${selectedExercise ? '' : 'display:none;'}">
@@ -110,7 +110,7 @@ function initExercisePicker(exercises: Exercise[]) {
               padding:0.75rem 1rem;
               cursor:pointer;
               font-size:0.95rem;
-              border-bottom:1px solid var(--border-color);
+              border-bottom:0.5px solid var(--border-color);
               background:${selectedExercise?.id === ex.id ? 'var(--accent)' : 'transparent'};
               color:${selectedExercise?.id === ex.id ? '#fff' : 'var(--text-primary)'};
             "
@@ -225,7 +225,7 @@ async function renderBodyweightSection() {
   listContainer.innerHTML = `
     <div style="margin-top:0.75rem;">
       ${recent.map(entry => `
-        <div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--border-color);">
+        <div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:0.5px solid var(--border-color);">
           <span style="font-size:0.875rem;color:var(--text-secondary);">${new Date(entry.measuredAt).toLocaleDateString()}</span>
           <span style="font-weight:500;">${formatWeight(entry.weightLbs, displayUnit)}</span>
         </div>

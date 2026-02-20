@@ -109,7 +109,7 @@ export async function renderWorkoutScreen() {
           })
           .join(', ');
         return `
-          <div style="padding:0.4rem 0;border-bottom:1px solid var(--border-color);">
+          <div style="padding:0.4rem 0;border-bottom:0.5px solid var(--border-color);">
             <div style="font-weight:500;font-size:0.9rem;">${name}</div>
             <div style="font-size:0.8rem;color:var(--text-secondary);">${setsSummary}</div>
           </div>`;
@@ -130,7 +130,7 @@ export async function renderWorkoutScreen() {
         <h1 class="mb-2">Workout</h1>
 
         ${lastWorkoutHtml ? `
-          <p class="text-muted mb-1" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Last Workout</p>
+          <p class="section-header mb-1">Last Workout</p>
           ${lastWorkoutHtml}
         ` : ''}
 
@@ -139,7 +139,7 @@ export async function renderWorkoutScreen() {
             <p class="text-muted">No templates yet. Create one in the Templates tab.</p>
           </div>
         ` : `
-          <p class="text-muted mb-1" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.05em;">Start Workout</p>
+          <p class="section-header mb-1">Start Workout</p>
           <div id="template-quick-start"></div>
         `}
       </div>
@@ -271,7 +271,7 @@ function renderExercises() {
         <div style="overflow-x: auto;">
           <table style="width: 100%; border-collapse: collapse;">
             <thead>
-              <tr style="border-bottom: 1px solid var(--border-color);">
+              <tr style="border-bottom: 0.5px solid var(--border-color);">
                 <th style="padding: 0.5rem; text-align: left; font-size: 0.875rem;">Set</th>
                 <th style="padding: 0.5rem; text-align: left; font-size: 0.875rem;">Previous</th>
                 <th style="padding: 0.5rem; text-align: center; font-size: 0.875rem;">Reps</th>
@@ -284,7 +284,7 @@ function renderExercises() {
                 .map((set, idx) => {
                   const prevSet = last && last.sets[idx];
                   return `
-                <tr style="border-bottom: 1px solid var(--border-color); ${
+                <tr style="border-bottom: 0.5px solid var(--border-color); ${
                   set.reps === undefined || set.weightLbs === undefined ? 'opacity: 0.5;' : ''
                 }">
                   <td style="padding: 0.5rem; font-weight: 500;">${idx + 1}</td>

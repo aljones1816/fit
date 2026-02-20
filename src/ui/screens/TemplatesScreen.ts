@@ -57,7 +57,7 @@ export async function renderTemplatesScreen() {
               type="text"
               id="exercise-search"
               placeholder="Search exercises..."
-              style="width: 100%; margin-bottom: 1rem; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-primary); color: var(--text-primary);"
+              style="width: 100%; margin-bottom: 1rem; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-primary); color: var(--text-primary);"
             />
             <div id="exercises-list" style="max-height: 400px; overflow-y: auto;"></div>
           </div>
@@ -111,7 +111,7 @@ function renderExercisesList() {
   container.innerHTML = filteredExercises
     .map(
       ex => `
-    <div style="padding: 0.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+    <div style="padding: 0.5rem; border-bottom: 0.5px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
       <span style="font-size: 0.9rem;">${ex.name}</span>
       <button class="btn btn-danger" data-exercise-id="${ex.id}" style="padding: 0.3rem 0.6rem; min-height: 32px; font-size: 0.875rem;">
         Delete
