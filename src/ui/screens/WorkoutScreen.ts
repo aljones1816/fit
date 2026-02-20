@@ -17,6 +17,7 @@ import {
   getAllExercises,
   getEndedSessions,
   createSession,
+  deleteSetting,
 } from '../../data/queries';
 import type { Session, SetEntry, Exercise, ExerciseLast, DisplayUnit, Template, PRHit } from '../../data/models';
 import { showToast } from '../components/Toast';
@@ -156,12 +157,9 @@ export async function renderWorkoutScreen() {
   const session = await getSession(activeId);
   activeSession = session || null;
   if (!activeSession) {
-    screen.innerHTML = `
-      <div class="text-center mt-3">
-        <h1>Workout</h1>
-        <p class="text-muted mt-2">Session not found. Start a new one from Templates.</p>
-      </div>
-    `;
+    // Stale pointer — session was lost (e.g. app closed mid-write). Clear it and show home.
+    await deleteSetting('session.activeId');
+    await renderWorkoutScreen();
     return;
   }
 
