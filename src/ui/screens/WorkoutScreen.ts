@@ -10,6 +10,7 @@ import {
   endSession,
   deleteBlankSets,
   deleteSession,
+  detectSessionPRs,
   getTemplate,
   getDisplayUnit,
   getAllTemplates,
@@ -17,7 +18,7 @@ import {
   getEndedSessions,
   createSession,
 } from '../../data/queries';
-import type { Session, SetEntry, Exercise, ExerciseLast, DisplayUnit, Template } from '../../data/models';
+import type { Session, SetEntry, Exercise, ExerciseLast, DisplayUnit, Template, PRHit } from '../../data/models';
 import { showToast } from '../components/Toast';
 import { showModal } from '../components/Modal';
 import { formatWeight, parseEnteredWeight } from '../../data/units';
@@ -580,17 +581,143 @@ async function finishWorkout() {
   const filledSets = sessionSets.filter(s => s.reps !== undefined && s.weightLbs !== undefined);
   if (filledSets.length === 0) {
     await deleteSession(activeSession.id);
+    activeSession = null;
+    sessionSets = [];
     showToast('Empty workout discarded', 'info');
-  } else {
-    await endSession(activeSession.id);
-    showToast('Workout complete!', 'success');
+    renderWorkoutScreen();
+    return;
   }
+
+  // Capture everything we need before resetting state
+  const durationMs = Date.now() - activeSession.startedAt;
+  let workoutTitle = 'Workout';
+  if (activeSession.templateId) {
+    const tmpl = await getTemplate(activeSession.templateId);
+    if (tmpl) workoutTitle = tmpl.name;
+  }
+  const completedSets = [...filledSets];
+  const snapshotExercisesMap = new Map(exercisesMap);
+  const snapshotDisplayUnit = displayUnit;
+
+  // Detect PRs BEFORE endSession updates the stored records
+  const prHits = await detectSessionPRs(completedSets);
+
+  await endSession(activeSession.id);
 
   // Reset state
   activeSession = null;
   sessionSets = [];
 
-  renderWorkoutScreen();
+  renderWorkoutCompleteScreen(workoutTitle, durationMs, completedSets, snapshotExercisesMap, snapshotDisplayUnit, prHits);
+}
+
+function renderWorkoutCompleteScreen(
+  workoutTitle: string,
+  durationMs: number,
+  filledSets: SetEntry[],
+  exMap: Map<string, Exercise>,
+  unit: DisplayUnit,
+  prHits: Map<string, PRHit>,
+) {
+  const screen = document.getElementById('screen');
+  if (!screen) return;
+
+  const totalMins = Math.round(durationMs / 60000);
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  const durationStr = h > 0 ? `${h}h ${m}m` : `${totalMins}m`;
+
+  // Group sets by exercise, preserving encounter order
+  const exerciseGroups = new Map<string, SetEntry[]>();
+  for (const set of filledSets) {
+    if (!exerciseGroups.has(set.exerciseId)) exerciseGroups.set(set.exerciseId, []);
+    exerciseGroups.get(set.exerciseId)!.push(set);
+  }
+
+  const exerciseSummaries = [...exerciseGroups.entries()].map(([exId, sets]) => {
+    const name = exMap.get(exId)?.name ?? 'Unknown';
+    const bestSet = sets.reduce((best, s) => (s.weightLbs! >= best.weightLbs! ? s : best));
+    const weightDisplay = unit === 'kg'
+      ? `${(bestSet.weightLbs! * 0.45359237).toFixed(1)} kg`
+      : `${bestSet.weightLbs!} lb`;
+    const pr = prHits.get(exId);
+    return { name, sets, bestSet, weightDisplay, pr };
+  });
+
+  const totalPRs = prHits.size;
+  const headerEmoji = totalPRs > 0 ? '🏆' : '🎉';
+  const headerText = totalPRs > 0
+    ? `${totalPRs} New PR${totalPRs !== 1 ? 's' : ''}!`
+    : 'Workout Done!';
+
+  // Build Wordle-style share text
+  const shareLines = [
+    `💪 ${workoutTitle}`,
+    `⏱️ ${durationStr} · ${exerciseSummaries.length} exercise${exerciseSummaries.length !== 1 ? 's' : ''}`,
+    ...(totalPRs > 0 ? [`🏆 ${totalPRs} new PR${totalPRs !== 1 ? 's' : ''}!`] : []),
+    '',
+    ...exerciseSummaries.map(e => {
+      const prTag = e.pr ? (e.pr.e1rmPR ? ' 🏆 PR' : ' 🏆 weight PR') : '';
+      return `${e.name}: ${e.bestSet.reps} × ${e.weightDisplay}${prTag}`;
+    }),
+    '',
+    'Logged with Fit 🔥',
+  ];
+  const shareText = shareLines.join('\n');
+
+  const canShare = !!navigator.share;
+
+  screen.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;padding:2.5rem 1rem 1rem;text-align:center;">
+      <div style="font-size:4rem;line-height:1;margin-bottom:1rem;">${headerEmoji}</div>
+      <h1 style="margin-bottom:0.25rem;">${headerText}</h1>
+      <p style="color:var(--text-secondary);margin-bottom:1.5rem;">${workoutTitle} · ${durationStr}</p>
+
+      <div class="card mb-3" style="width:100%;text-align:left;">
+        ${exerciseSummaries.map((e, i) => `
+          <div style="padding:0.6rem 0;${i < exerciseSummaries.length - 1 ? 'border-bottom:0.5px solid var(--border-color);' : ''}">
+            <div style="font-weight:500;display:flex;align-items:center;gap:0.4rem;">
+              ${e.name}
+              ${e.pr ? `<span style="font-size:0.75rem;font-weight:600;color:var(--accent);background:var(--bg-tertiary);padding:0.1rem 0.4rem;border-radius:4px;">PR</span>` : ''}
+            </div>
+            <div style="font-size:0.875rem;color:var(--text-secondary);">
+              ${e.sets.length} set${e.sets.length !== 1 ? 's' : ''} · Best: ${e.bestSet.reps} × ${e.weightDisplay}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:0.75rem;width:100%;">
+        ${canShare ? `
+          <button class="btn btn-primary" id="share-btn" style="width:100%;">Share Workout</button>
+        ` : `
+          <button class="btn btn-primary" id="copy-btn" style="width:100%;">Copy Summary</button>
+        `}
+        <button class="btn btn-secondary" id="done-btn" style="width:100%;">Done</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('share-btn')?.addEventListener('click', async () => {
+    try {
+      await navigator.share({ text: shareText });
+    } catch {
+      // User cancelled — do nothing
+    }
+  });
+
+  document.getElementById('copy-btn')?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      showToast('Copied to clipboard!', 'success');
+    } catch {
+      showToast('Copy failed', 'error');
+    }
+  });
+
+  document.getElementById('done-btn')?.addEventListener('click', () => {
+    renderWorkoutScreen();
+  });
 }
 
 async function renderQuickStartTemplates(templates: Template[]) {

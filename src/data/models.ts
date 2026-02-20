@@ -47,6 +47,13 @@ export interface ExercisePR {
   updatedAt: number;
 }
 
+export interface PRHit {
+  exerciseId: Id;
+  e1rmPR: boolean;
+  weightPR: boolean;
+  topSet: { reps: number; weightLbs: number }; // best set from this session
+}
+
 export interface BodyweightEntry {
   id: Id;
   measuredAt: number;

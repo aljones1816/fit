@@ -12,11 +12,13 @@ import {
   addBodyweightEntry,
   updateBodyweightEntry,
   deleteBodyweightEntry,
+  getAllExercisePRs,
 } from '../../data/queries';
-import type { Session, SetEntry, Exercise, DisplayUnit, BodyweightEntry } from '../../data/models';
+import type { Session, SetEntry, Exercise, DisplayUnit, BodyweightEntry, ExercisePR } from '../../data/models';
 import { showToast } from '../components/Toast';
 import { showModal } from '../components/Modal';
 import { formatWeight, parseEnteredWeight, lbsToKg } from '../../data/units';
+import { findBestE1RM } from '../../data/pr';
 
 let activeSubView: 'workouts' | 'weight' = 'workouts';
 let displayUnit: DisplayUnit = 'lbs';
@@ -110,6 +112,9 @@ async function renderWorkoutsView(container: HTMLElement) {
     return;
   }
 
+  // Load all-time PRs once for PR badge rendering
+  const allPRs = await getAllExercisePRs();
+
   // Resolve template names (cached)
   for (const session of sorted) {
     if (session.templateId && !templateNamesCache.has(session.templateId)) {
@@ -142,17 +147,32 @@ async function renderWorkoutsView(container: HTMLElement) {
         if (ex) exercisesCache.set(exId, ex);
       }
     }
-    const exerciseNames = uniqueExerciseIds
-      .map(id => exercisesCache.get(id)?.name)
-      .filter(Boolean) as string[];
+
+    // For each exercise, check if this session's best e1rm matches the all-time PR
+    const exerciseEntries = uniqueExerciseIds.map(exId => {
+      const exName = exercisesCache.get(exId)?.name;
+      if (!exName) return null;
+      const filledSets = sets
+        .filter(s => s.exerciseId === exId && s.reps !== undefined && s.weightLbs !== undefined)
+        .map(s => ({ reps: s.reps!, weightLbs: s.weightLbs! }));
+      const sessionBest = findBestE1RM(filledSets);
+      const pr = allPRs.get(exId) as ExercisePR | undefined;
+      const isPR = !!(pr && sessionBest && Math.abs(sessionBest.e1rm - pr.bestE1rm) < 0.01);
+      return { name: exName, isPR };
+    }).filter(Boolean) as Array<{ name: string; isPR: boolean }>;
 
     let expandedHtml = '';
     if (isExpanded) {
       expandedHtml = await buildSessionEditHtml(session);
     }
 
-    const exerciseListHtml = !isExpanded && exerciseNames.length > 0
-      ? `<div style="margin-top:0.4rem;">${exerciseNames.map(n => `<div style="font-size:0.8rem;color:var(--text-secondary);">• ${n}</div>`).join('')}</div>`
+    const exerciseListHtml = !isExpanded && exerciseEntries.length > 0
+      ? `<div style="margin-top:0.4rem;">${exerciseEntries.map(e =>
+          `<div style="font-size:0.8rem;color:var(--text-secondary);display:flex;align-items:center;gap:0.3rem;">
+            • ${e.name}
+            ${e.isPR ? `<span style="font-size:0.7rem;font-weight:600;color:var(--accent);">PR</span>` : ''}
+          </div>`
+        ).join('')}</div>`
       : '';
 
     cards.push(`

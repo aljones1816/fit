@@ -6,6 +6,7 @@ import type {
   SetEntry,
   ExerciseLast,
   ExercisePR,
+  PRHit,
   BodyweightEntry,
   DisplayUnit,
   ThemeMode,
@@ -262,6 +263,41 @@ async function updateExercisePR(exerciseId: string, sets: SetEntry[]): Promise<v
 export async function getExercisePR(exerciseId: string): Promise<ExercisePR | undefined> {
   const db = await getDB();
   return db.get('exercise_pr', exerciseId);
+}
+
+export async function getAllExercisePRs(): Promise<Map<string, ExercisePR>> {
+  const db = await getDB();
+  const all = await db.getAll('exercise_pr');
+  return new Map(all.map(pr => [pr.exerciseId, pr]));
+}
+
+// Call BEFORE endSession so we compare against the records that existed prior to this workout.
+export async function detectSessionPRs(sets: SetEntry[]): Promise<Map<string, PRHit>> {
+  const result = new Map<string, PRHit>();
+
+  // Group filled sets by exercise
+  const byExercise = new Map<string, Array<{ reps: number; weightLbs: number }>>();
+  for (const set of sets) {
+    if (set.reps === undefined || set.weightLbs === undefined) continue;
+    if (!byExercise.has(set.exerciseId)) byExercise.set(set.exerciseId, []);
+    byExercise.get(set.exerciseId)!.push({ reps: set.reps, weightLbs: set.weightLbs });
+  }
+
+  for (const [exerciseId, filledSets] of byExercise) {
+    const best = findBestE1RM(filledSets);
+    const topWeight = findTopSetWeight(filledSets);
+    if (!best) continue;
+
+    const existing = await getExercisePR(exerciseId);
+    const e1rmPR = !existing || best.e1rm > existing.bestE1rm;
+    const weightPR = !existing || topWeight > existing.bestTopSetWeight;
+
+    if (e1rmPR || weightPR) {
+      result.set(exerciseId, { exerciseId, e1rmPR, weightPR, topSet: best.set });
+    }
+  }
+
+  return result;
 }
 
 // ===== BODYWEIGHT =====
