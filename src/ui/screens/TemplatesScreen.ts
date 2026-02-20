@@ -289,7 +289,9 @@ async function handleDeleteTemplate(id: string) {
 }
 
 function showTemplateEditorModal(template?: Template) {
-  const selectedExerciseIds = new Set(template?.exerciseIds || []);
+  // Track selection in a Set so filtering never loses checked state
+  const selectedIds = new Set<string>(template?.exerciseIds || []);
+  const sorted = [...exercises].sort((a, b) => a.name.localeCompare(b.name));
 
   const body = document.createElement('div');
   body.innerHTML = `
@@ -298,28 +300,72 @@ function showTemplateEditorModal(template?: Template) {
       id="template-name-input"
       placeholder="Template name (e.g., Upper A)"
       value="${template?.name || ''}"
-      style="width: 100%; margin-bottom: 1rem;"
+      style="width:100%;margin-bottom:1rem;"
     />
-    <div style="margin-bottom: 0.5rem; font-weight: 600;">Exercises:</div>
-    <div id="exercise-selector" style="max-height: 300px; overflow-y: auto;">
-      ${exercises
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map(
-          ex => `
-        <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; cursor: pointer;">
-          <input
-            type="checkbox"
-            value="${ex.id}"
-            ${selectedExerciseIds.has(ex.id) ? 'checked' : ''}
-            style="width: 20px; height: 20px;"
-          />
-          <span>${ex.name}</span>
-        </label>
-      `
-        )
-        .join('')}
+    <div style="margin-bottom:0.5rem;font-weight:600;">Exercises:</div>
+    <div style="position:relative;margin-bottom:0.25rem;">
+      <input
+        type="text"
+        id="ex-search-input"
+        placeholder="Search exercises…"
+        autocomplete="off"
+        style="width:100%;padding:0.6rem 0.75rem;border:1px solid var(--border-color);border-radius:10px;background:var(--bg-secondary);color:var(--text-primary);font-size:1rem;"
+      />
     </div>
+    <div id="ex-selector-list" style="max-height:260px;overflow-y:auto;border:1px solid var(--border-color);border-radius:10px;"></div>
   `;
+
+  const renderList = (query: string) => {
+    const container = body.querySelector<HTMLElement>('#ex-selector-list')!;
+    const q = query.toLowerCase().trim();
+    const visible = q ? sorted.filter(ex => ex.name.toLowerCase().includes(q)) : sorted;
+
+    if (visible.length === 0) {
+      container.innerHTML = `<div style="padding:0.75rem;color:var(--text-secondary);font-size:0.9rem;">No matches</div>`;
+      return;
+    }
+
+    container.innerHTML = visible.map(ex => `
+      <label style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0.75rem;cursor:pointer;border-bottom:0.5px solid var(--border-color);">
+        <input
+          type="checkbox"
+          value="${ex.id}"
+          ${selectedIds.has(ex.id) ? 'checked' : ''}
+          style="width:20px;height:20px;flex-shrink:0;"
+        />
+        <span style="font-size:0.95rem;">${ex.name}</span>
+      </label>
+    `).join('');
+
+    container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (cb.checked) selectedIds.add(cb.value);
+        else selectedIds.delete(cb.value);
+
+        // Clear search on selection
+        const searchEl = body.querySelector<HTMLInputElement>('#ex-search-input')!;
+        searchEl.value = '';
+        renderList('');
+      });
+    });
+  };
+
+  renderList('');
+
+  // Wire search input
+  setTimeout(() => {
+    const searchEl = body.querySelector<HTMLInputElement>('#ex-search-input')!;
+
+    searchEl.addEventListener('input', () => renderList(searchEl.value));
+
+    searchEl.addEventListener('blur', () => {
+      // Delay so a checkbox click can fire its change handler before we clear
+      setTimeout(() => {
+        searchEl.value = '';
+        renderList('');
+      }, 200);
+    });
+  }, 0);
 
   showModal({
     title: template ? 'Edit Template' : 'New Template',
@@ -330,21 +376,20 @@ function showTemplateEditorModal(template?: Template) {
         text: 'Save',
         className: 'btn btn-primary',
         onClick: async () => {
-          const nameInput = document.getElementById('template-name-input') as HTMLInputElement;
-          const name = nameInput?.value.trim();
+          const nameInput = body.querySelector<HTMLInputElement>('#template-name-input')!;
+          const name = nameInput.value.trim();
 
           if (!name) {
             showToast('Please enter a template name', 'error');
             return;
           }
 
-          const checkboxes = body.querySelectorAll<HTMLInputElement>('#exercise-selector input[type="checkbox"]:checked');
-          const exerciseIds = Array.from(checkboxes).map(cb => cb.value);
-
-          if (exerciseIds.length === 0) {
+          if (selectedIds.size === 0) {
             showToast('Please select at least one exercise', 'error');
             return;
           }
+
+          const exerciseIds = [...selectedIds];
 
           if (template) {
             template.name = name;
