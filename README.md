@@ -77,6 +77,7 @@ This app is configured to deploy to **GitHub Pages** with a custom domain at `fi
 #### 1. In Your DNS Provider (e.g., Cloudflare, Namecheap)
 
 Add a **CNAME record**:
+
 - **Host**: `fit`
 - **Target**: `alanjones.github.io` (replace `alanjones` with your GitHub username)
 - **TTL**: Auto or 3600
@@ -110,7 +111,7 @@ The GitHub Action will automatically build and deploy to Pages.
 2. Tap the **Share** button (square with arrow)
 3. Scroll down and tap **Add to Home Screen**
 4. Tap **Add**
-5. Open the app from your home screen 
+5. Open the app from your home screen
 
 The app will work offline after the first load.
 
