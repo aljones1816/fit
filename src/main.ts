@@ -3,7 +3,7 @@ import './ui/styles/theme.css';
 import 'uplot/dist/uPlot.min.css';
 import { initRouter } from './router';
 import { registerServiceWorker } from './pwa/registerSW';
-import { initializeDefaultExercises } from './data/initDefaults';
+import { initializeDefaultExercises, deduplicateExercises } from './data/initDefaults';
 import { onAuthStateChanged } from './firebase/auth';
 import { initialSync, initAutoSync } from './firebase/sync';
 import { applyTheme, getThemeMode } from './data/queries';
@@ -50,6 +50,8 @@ async function init() {
       // Seed defaults AFTER sync so Firestore data arrives first.
       // If the user already has exercises (from sync), this is a no-op.
       await initializeDefaultExercises();
+      // One-time cleanup: collapse duplicate exercises created by earlier bugs.
+      await deduplicateExercises();
     } else {
       appEl.style.visibility = 'hidden';
       showAuthPrompt();

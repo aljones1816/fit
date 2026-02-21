@@ -1,5 +1,4 @@
 import { signIn, signUp } from '../../firebase/auth';
-import { initialSync } from '../../firebase/sync';
 import { showToast } from './Toast';
 
 type AuthMode = 'signin' | 'signup';
@@ -139,10 +138,9 @@ async function handleSubmit(sheet: HTMLElement, mode: AuthMode): Promise<void> {
   if (btn) { btn.disabled = true; btn.textContent = mode === 'signup' ? 'Creating...' : 'Signing in...'; }
 
   try {
-    const user = mode === 'signup' ? await signUp(email, password) : await signIn(email, password);
-    closeAuthPrompt();
+    await (mode === 'signup' ? signUp(email, password) : signIn(email, password));
+    // onAuthStateChanged in main.ts handles sync + seeding from here
     showToast(mode === 'signup' ? 'Account created!' : 'Signed in!', 'success');
-    await initialSync(user.uid);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     if (errorEl) errorEl.textContent = friendlyError(msg);
