@@ -4,6 +4,7 @@ let timerInterval: number | null = null;
 let timerSeconds = 90;
 let timerRemaining = 90;
 let timerState: 'idle' | 'running' | 'finished' = 'idle';
+let _timerSectionVisible = true; // tracks whether in-page timer card is visible
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -63,6 +64,14 @@ export async function initTimer() {
   timerSeconds = defaultSeconds;
   timerRemaining = defaultSeconds;
   timerState = 'idle';
+  _timerSectionVisible = true;
+}
+
+// Called by WorkoutScreen's IntersectionObserver whenever the in-page timer card
+// enters or leaves the viewport. FAB is only shown when running + scrolled away.
+export function setFabSectionVisible(visible: boolean): void {
+  _timerSectionVisible = visible;
+  updateFab();
 }
 
 // ── Timer sheet (popup) ───────────────────────────────────────────────────────
@@ -77,9 +86,27 @@ export function showTimerSheet(): void {
 
   const sheet = document.createElement('div');
   sheet.className = 'timer-sheet';
+
+  const r = 88;
+  const circ = 2 * Math.PI * r;
+  const progress = timerSeconds > 0 ? timerRemaining / timerSeconds : 1;
+  const offset = circ * (1 - progress);
+  const ringStroke = timerState === 'running' && timerRemaining < 10 ? 'var(--danger)' : 'var(--accent)';
+
   sheet.innerHTML = `
     <div class="pc-handle"></div>
-    <div id="timer-sheet-display" class="timer-sheet-display">${formatTime(timerRemaining)}</div>
+    <p class="timer-sheet-title">Rest Timer</p>
+    <div class="timer-sheet-ring-wrap">
+      <svg class="timer-sheet-ring-svg" viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="${r}" class="timer-sheet-ring-track"/>
+        <circle cx="100" cy="100" r="${r}" id="timer-sheet-ring-arc" class="timer-sheet-ring-arc"
+          style="stroke-dasharray:${circ.toFixed(3)};stroke-dashoffset:${offset.toFixed(3)};stroke:${ringStroke};"/>
+      </svg>
+      <div class="timer-sheet-ring-center">
+        <div id="timer-sheet-display" class="timer-sheet-display">${formatTime(timerRemaining)}</div>
+        <div class="timer-sheet-status">${timerState === 'running' ? 'Resting…' : 'Ready'}</div>
+      </div>
+    </div>
     <div class="timer-sheet-controls">
       <button class="btn btn-secondary" data-sheet-action="minus">-30s</button>
       <button class="btn btn-primary" data-sheet-action="start">${timerState === 'running' ? 'Stop' : 'Start'}</button>
@@ -158,12 +185,25 @@ function handleTimerComplete() {
 }
 
 function updateTimerDisplay() {
-  // Top-bar / in-page timer card
   const displays = document.querySelectorAll('#timer-display, #timer-sheet-display');
   displays.forEach(display => {
     display.textContent = formatTime(timerRemaining);
     (display as HTMLElement).style.color = timerRemaining === 0 ? 'var(--success)' : '';
   });
+
+  // Update sheet ring arc
+  const arc = document.getElementById('timer-sheet-ring-arc') as SVGCircleElement | null;
+  if (arc) {
+    const r = 88;
+    const circ = 2 * Math.PI * r;
+    const progress = timerSeconds > 0 ? timerRemaining / timerSeconds : 1;
+    arc.style.strokeDashoffset = String(circ * (1 - progress));
+    arc.style.stroke = timerState === 'running' && timerRemaining < 10 ? 'var(--danger)' : 'var(--accent)';
+  }
+
+  // Update sheet status label
+  const status = document.querySelector<HTMLElement>('.timer-sheet-status');
+  if (status) status.textContent = timerState === 'running' ? 'Resting…' : 'Ready';
 
   updateFab();
 }
@@ -179,6 +219,8 @@ function updateFab() {
   const fab = document.getElementById('timer-fab');
   if (!fab) return;
 
+  // Only show when timer is running AND the in-page card has scrolled out of view
+  fab.classList.toggle('timer-fab--hidden', _timerSectionVisible || timerState !== 'running');
   fab.classList.toggle('timer-fab--active', timerState === 'running');
 
   // Time label — only visible while running

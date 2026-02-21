@@ -809,7 +809,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .timer-sheet {
   background: var(--bg-secondary);
   border-radius: 20px 20px 0 0;
-  padding: 0 1.5rem calc(2rem + env(safe-area-inset-bottom));
+  padding: 0 1.5rem calc(2.5rem + env(safe-area-inset-bottom));
   width: 100%;
   transform: translateY(100%);
   transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
@@ -819,12 +819,68 @@ input[type="number"]::-webkit-outer-spin-button {
   transform: translateY(0);
 }
 
+.timer-sheet-title {
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+/* Circular progress ring */
+.timer-sheet-ring-wrap {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  margin: 0.75rem auto 1.5rem;
+}
+
+.timer-sheet-ring-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.timer-sheet-ring-track {
+  fill: none;
+  stroke: var(--bg-tertiary);
+  stroke-width: 10;
+}
+
+.timer-sheet-ring-arc {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 10;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.95s linear, stroke 0.3s;
+}
+
+.timer-sheet-ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+}
+
 .timer-sheet-display {
-  font-size: 4.5rem;
+  font-size: 3.25rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   text-align: center;
-  margin-bottom: 1.5rem;
+  line-height: 1;
+}
+
+.timer-sheet-status {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .timer-sheet-controls {

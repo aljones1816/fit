@@ -23,7 +23,7 @@ import type { Session, SetEntry, Exercise, ExerciseLast, DisplayUnit, Template, 
 import { showToast } from '../components/Toast';
 import { showModal } from '../components/Modal';
 import { formatWeight, parseEnteredWeight, formatVolume } from '../../data/units';
-import { renderTimer, renderTimerFab, attachTimerHandlers, initTimer, showTimerSheet } from '../components/Timer';
+import { renderTimer, renderTimerFab, attachTimerHandlers, initTimer, showTimerSheet, setFabSectionVisible } from '../components/Timer';
 import { trySyncNow } from '../../firebase/sync';
 import { showPlateCalculator } from '../components/PlateCalculator';
 
@@ -277,30 +277,25 @@ export async function renderWorkoutScreen() {
   const topBar = document.getElementById('workout-top-bar');
 
   if (timerSection && timerFab) {
-    // Initial state
-    timerFab.classList.add('timer-fab--hidden');
-
     const topMargin = topBar ? topBar.offsetHeight + 10 : 10;
-    
+
     // Cleanup any existing observer before creating a new one
     if ((window as any)._timerObserver) {
       (window as any)._timerObserver.disconnect();
     }
 
     const observer = new IntersectionObserver((entries) => {
-      const entry = entries[0];
-      // FAB is hidden IF the timer section is intersecting the visible area (below top bar)
-      const isVisible = entry.isIntersecting;
-      timerFab.classList.toggle('timer-fab--hidden', isVisible);
+      // Delegate full visibility logic to Timer.ts — it also checks timer state
+      setFabSectionVisible(entries[0].isIntersecting);
     }, {
-      root: null, // Viewport root is more reliable for fixed elements overlap
+      root: null,
       rootMargin: `-${topMargin}px 0px 0px 0px`,
       threshold: 0
     });
 
     observer.observe(timerSection);
     (window as any)._timerObserver = observer;
-    
+
     timerFab.onclick = () => showTimerSheet();
   }
 
