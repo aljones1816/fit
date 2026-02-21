@@ -4,7 +4,8 @@ export interface ModalOptions {
   buttons: Array<{
     text: string;
     className?: string;
-    onClick: () => void;
+    closeOnClick?: boolean;
+    onClick: () => void | boolean | Promise<void | boolean>;
   }>;
 }
 
@@ -37,9 +38,22 @@ export function showModal(options: ModalOptions) {
     const button = document.createElement('button');
     button.className = btn.className || 'btn btn-secondary';
     button.textContent = btn.text;
-    button.onclick = () => {
-      btn.onClick();
-      closeModal();
+    button.onclick = async () => {
+      const shouldAutoClose = btn.closeOnClick ?? true;
+      button.disabled = true;
+      try {
+        const result = await btn.onClick();
+        if (shouldAutoClose && result !== false) {
+          closeModal();
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        // If the modal is still open, re-enable the button.
+        if (container.classList.contains('active')) {
+          button.disabled = false;
+        }
+      }
     };
     footer.appendChild(button);
   });

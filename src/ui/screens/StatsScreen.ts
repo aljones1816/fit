@@ -238,12 +238,13 @@ function showAuthModal(mode: 'signin' | 'signup') {
 
   showModal({
     title,
-    body: content.innerHTML,
+    body: content,
     buttons: [
       { text: 'Cancel', className: 'btn btn-secondary', onClick: () => {} },
       {
         text: title,
         className: 'btn btn-primary',
+        closeOnClick: false,
         onClick: async () => {
           const emailEl = document.getElementById('auth-email') as HTMLInputElement | null;
           const passwordEl = document.getElementById('auth-password') as HTMLInputElement | null;
@@ -254,7 +255,7 @@ function showAuthModal(mode: 'signin' | 'signup') {
 
           if (!email || !password) {
             if (errorEl) { errorEl.textContent = 'Email and password are required.'; errorEl.style.display = 'block'; }
-            return;
+            return false;
           }
 
           try {
@@ -266,12 +267,13 @@ function showAuthModal(mode: 'signin' | 'signup') {
               showToast('Signed in! Syncing your data...', 'success');
             }
             renderStatsScreen();
+            return true;
           } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             const friendly = friendlyAuthError(msg);
             if (errorEl) { errorEl.textContent = friendly; errorEl.style.display = 'block'; }
-            // Re-throw so the modal stays open — but modal closes automatically, so we just show a toast too
             showToast(friendly, 'error');
+            return false;
           }
         },
       },
