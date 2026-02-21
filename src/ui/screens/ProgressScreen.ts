@@ -12,6 +12,7 @@ import { calculateE1RM } from '../../data/pr';
 import { lbsToKg } from '../../data/units';
 import { showModal } from '../components/Modal';
 import { showToast } from '../components/Toast';
+import { trySyncNow } from '../../firebase/sync';
 
 let selectedExercise: Exercise | null = null;
 let activeChartType: 'e1rm' | 'top' | 'volume' = 'e1rm';
@@ -272,6 +273,7 @@ async function handleLogTodayWeight() {
             await addBodyweightEntry(weightLbs, noon);
             showToast('Weight logged', 'success');
           }
+          trySyncNow();
           renderBodyweightSection();
         },
       },

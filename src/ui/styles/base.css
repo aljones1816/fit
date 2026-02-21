@@ -321,3 +321,148 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .gap-1 { gap: 0.5rem; }
 .gap-2 { gap: 1rem; }
+
+/* Auth Prompt — iOS-style bottom sheet */
+.auth-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: var(--bg-primary);
+  display: flex;
+  align-items: flex-end;
+}
+
+.auth-prompt-sheet {
+  background: var(--bg-secondary);
+  border-radius: 20px 20px 0 0;
+  padding: 0 1.25rem 1rem;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  width: 100%;
+  transform: translateY(100%);
+  transition: transform 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.auth-prompt--visible .auth-prompt-sheet {
+  transform: translateY(0);
+}
+
+/* Drag handle */
+.auth-handle {
+  width: 36px;
+  height: 5px;
+  background: var(--border-color);
+  border-radius: 3px;
+  margin: 10px auto 1.5rem;
+  opacity: 0.6;
+}
+
+/* Icon + branding */
+.auth-icon-wrap {
+  text-align: center;
+  margin-bottom: 1.75rem;
+}
+
+.auth-app-icon {
+  width: 72px;
+  height: 72px;
+  background: var(--accent);
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  margin: 0 auto 0.75rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.auth-app-name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  margin-bottom: 0.3rem;
+}
+
+.auth-app-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  padding: 0 0.5rem;
+}
+
+/* Grouped input fields — iOS "inset grouped" table style */
+.auth-fields {
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.auth-field-row {
+  display: flex;
+  align-items: center;
+}
+
+.auth-field {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0.875rem 1rem;
+  font-size: 1rem;
+  color: var(--text-primary);
+  min-height: 52px;
+  font-family: inherit;
+}
+
+.auth-field::placeholder {
+  color: var(--text-secondary);
+}
+
+.auth-field:focus {
+  outline: none;
+}
+
+.auth-field-divider {
+  height: 0.5px;
+  background: var(--border-color);
+  margin: 0 1rem;
+  opacity: 0.7;
+}
+
+/* Error */
+.auth-error-msg {
+  color: var(--danger);
+  font-size: 0.8125rem;
+  min-height: 1.1rem;
+  padding: 0 0.25rem;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+/* Primary action */
+.auth-submit-btn {
+  width: 100%;
+  margin-bottom: 0.25rem;
+  font-size: 1rem;
+  border-radius: 12px;
+}
+
+/* Switch mode link row */
+.auth-switch-row {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  padding: 0.625rem 0;
+  margin-bottom: 0.25rem;
+}
+
+.auth-switch-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+

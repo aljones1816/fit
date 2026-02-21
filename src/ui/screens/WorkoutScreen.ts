@@ -24,6 +24,7 @@ import { showToast } from '../components/Toast';
 import { showModal } from '../components/Modal';
 import { formatWeight, parseEnteredWeight, formatVolume } from '../../data/units';
 import { renderTimer, attachTimerHandlers, initTimer } from '../components/Timer';
+import { trySyncNow } from '../../firebase/sync';
 
 let activeSession: Session | null = null;
 let sessionSets: SetEntry[] = [];
@@ -604,6 +605,7 @@ async function finishWorkout() {
   const prHits = await detectSessionPRs(completedSets);
 
   await endSession(activeSession.id);
+  trySyncNow();
 
   // Reset state
   activeSession = null;

@@ -17,6 +17,7 @@ import {
 import type { Exercise, Template } from '../../data/models';
 import { showToast } from '../components/Toast';
 import { showModal } from '../components/Modal';
+import { trySyncNow } from '../../firebase/sync';
 import { navigate } from '../../router';
 import { DEFAULT_EXERCISES } from '../../data/seedData';
 
@@ -281,6 +282,7 @@ async function handleDeleteTemplate(id: string) {
         onClick: async () => {
           await deleteTemplate(id);
           showToast(`Deleted "${template.name}"`, 'success');
+          trySyncNow();
           renderTemplatesScreen();
         },
       },
@@ -405,7 +407,7 @@ function showTemplateEditorModal(template?: Template) {
             await createTemplate(name, exerciseIds);
             showToast(`Created "${name}"`, 'success');
           }
-
+          trySyncNow();
           renderTemplatesScreen();
         },
       },

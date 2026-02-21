@@ -1,4 +1,5 @@
 import { getDB, generateId } from './db';
+import { queueChange } from '../firebase/queue';
 import type {
   Exercise,
   Template,
@@ -24,6 +25,7 @@ export async function createExercise(name: string): Promise<Exercise> {
     updatedAt: Date.now(),
   };
   await db.add('exercises', exercise);
+  await queueChange('exercises', exercise.id, 'put');
   return exercise;
 }
 
@@ -41,11 +43,13 @@ export async function updateExercise(exercise: Exercise): Promise<void> {
   const db = await getDB();
   exercise.updatedAt = Date.now();
   await db.put('exercises', exercise);
+  await queueChange('exercises', exercise.id, 'put');
 }
 
 export async function deleteExercise(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('exercises', id);
+  await queueChange('exercises', id, 'delete');
 }
 
 // ===== TEMPLATES =====
@@ -60,6 +64,7 @@ export async function createTemplate(name: string, exerciseIds: string[]): Promi
     updatedAt: Date.now(),
   };
   await db.add('templates', template);
+  await queueChange('templates', template.id, 'put');
   return template;
 }
 
@@ -77,11 +82,13 @@ export async function updateTemplate(template: Template): Promise<void> {
   const db = await getDB();
   template.updatedAt = Date.now();
   await db.put('templates', template);
+  await queueChange('templates', template.id, 'put');
 }
 
 export async function deleteTemplate(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('templates', id);
+  await queueChange('templates', id, 'delete');
 }
 
 // ===== SESSIONS =====
@@ -95,6 +102,7 @@ export async function createSession(templateId?: string, bodyweightLbs?: number)
     bodyweightLbs,
   };
   await db.add('sessions', session);
+  await queueChange('sessions', session.id, 'put');
   await setSetting('session.activeId', session.id);
   return session;
 }
@@ -107,6 +115,7 @@ export async function getSession(id: string): Promise<Session | undefined> {
 export async function updateSession(session: Session): Promise<void> {
   const db = await getDB();
   await db.put('sessions', session);
+  await queueChange('sessions', session.id, 'put');
 }
 
 export async function endSession(sessionId: string): Promise<void> {
@@ -116,6 +125,7 @@ export async function endSession(sessionId: string): Promise<void> {
 
   session.endedAt = Date.now();
   await db.put('sessions', session);
+  await queueChange('sessions', session.id, 'put');
 
   // Update exercise_last cache for each exercise in session
   const sets = await getSessionSets(sessionId);
@@ -162,8 +172,10 @@ export async function deleteSession(id: string): Promise<void> {
   const sets = await db.getAllFromIndex('sets', 'sessionId', id);
   for (const set of sets) {
     await db.delete('sets', set.id);
+    await queueChange('sets', set.id, 'delete');
   }
   await db.delete('sessions', id);
+  await queueChange('sessions', id, 'delete');
 }
 
 // ===== SETS =====
@@ -185,17 +197,20 @@ export async function createSetEntry(
     weightLbs,
   };
   await db.add('sets', set);
+  await queueChange('sets', set.id, 'put');
   return set;
 }
 
 export async function updateSetEntry(set: SetEntry): Promise<void> {
   const db = await getDB();
   await db.put('sets', set);
+  await queueChange('sets', set.id, 'put');
 }
 
 export async function deleteSetEntry(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('sets', id);
+  await queueChange('sets', id, 'delete');
 }
 
 export async function getSessionSets(sessionId: string): Promise<SetEntry[]> {
@@ -217,6 +232,7 @@ export async function deleteBlankSets(sessionId: string): Promise<void> {
 
   for (const set of blankSets) {
     await db.delete('sets', set.id);
+    await queueChange('sets', set.id, 'delete');
   }
 }
 
@@ -310,6 +326,7 @@ export async function addBodyweightEntry(weightLbs: number, measuredAt: number =
     weightLbs,
   };
   await db.add('bodyweight_entries', entry);
+  await queueChange('bodyweight_entries', entry.id, 'put');
   return entry;
 }
 
@@ -321,11 +338,13 @@ export async function getAllBodyweightEntries(): Promise<BodyweightEntry[]> {
 export async function updateBodyweightEntry(entry: BodyweightEntry): Promise<void> {
   const db = await getDB();
   await db.put('bodyweight_entries', entry);
+  await queueChange('bodyweight_entries', entry.id, 'put');
 }
 
 export async function deleteBodyweightEntry(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('bodyweight_entries', id);
+  await queueChange('bodyweight_entries', id, 'delete');
 }
 
 // ===== SETTINGS =====

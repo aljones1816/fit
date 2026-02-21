@@ -10,7 +10,20 @@ import type {
   Setting,
 } from './models';
 
+export interface SyncQueueItem {
+  id: string;
+  entityType: 'exercises' | 'templates' | 'sessions' | 'sets' | 'bodyweight_entries';
+  entityId: string;
+  action: 'put' | 'delete';
+  timestamp: number;
+}
+
 interface WorkoutDB extends DBSchema {
+  sync_queue: {
+    key: string;
+    value: SyncQueueItem;
+    indexes: { entityId: string };
+  };
   exercises: {
     key: string;
     value: Exercise;
@@ -54,7 +67,7 @@ interface WorkoutDB extends DBSchema {
 }
 
 const DB_NAME = 'offline_workout_log';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbInstance: IDBPDatabase<WorkoutDB> | null = null;
 
@@ -62,7 +75,12 @@ export async function getDB(): Promise<IDBPDatabase<WorkoutDB>> {
   if (dbInstance) return dbInstance;
 
   dbInstance = await openDB<WorkoutDB>(DB_NAME, DB_VERSION, {
-    upgrade(db) {
+    upgrade(db, oldVersion) {
+      // v2: sync queue store
+      if (oldVersion < 2) {
+        const queueStore = db.createObjectStore('sync_queue', { keyPath: 'id' });
+        queueStore.createIndex('entityId', 'entityId');
+      }
       // Exercises store
       if (!db.objectStoreNames.contains('exercises')) {
         const exerciseStore = db.createObjectStore('exercises', { keyPath: 'id' });

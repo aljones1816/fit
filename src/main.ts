@@ -4,6 +4,10 @@ import 'uplot/dist/uPlot.min.css';
 import { initRouter } from './router';
 import { registerServiceWorker } from './pwa/registerSW';
 import { initializeDefaultExercises } from './data/initDefaults';
+import { onAuthStateChanged } from './firebase/auth';
+import { initialSync, initAutoSync } from './firebase/sync';
+import { applyTheme, getThemeMode } from './data/queries';
+import { showAuthPrompt, closeAuthPrompt } from './ui/components/AuthPrompt';
 
 // Select-all on focus for number inputs — tap to replace, not tap to position cursor
 document.addEventListener('focus', e => {
@@ -23,6 +27,10 @@ document.addEventListener('click', e => {
 
 // Initialize the app
 async function init() {
+  // Apply saved theme before rendering
+  const themeMode = await getThemeMode();
+  applyTheme(themeMode);
+
   // Seed default exercises on first load
   await initializeDefaultExercises();
 
@@ -33,6 +41,23 @@ async function init() {
   if (import.meta.env.PROD) {
     registerServiceWorker();
   }
+
+  const appEl = document.getElementById('app')!;
+
+  // Wire up Firebase auth — gate the app behind sign-in
+  onAuthStateChanged(async (user) => {
+    if (user) {
+      appEl.style.visibility = 'visible';
+      closeAuthPrompt();
+      await initialSync(user.uid);
+    } else {
+      appEl.style.visibility = 'hidden';
+      showAuthPrompt();
+    }
+  });
+
+  // Auto-sync when coming back online (works whether just signed in or already was)
+  initAutoSync();
 }
 
 init();
