@@ -611,6 +611,25 @@ input[type="number"]::-webkit-outer-spin-button {
   position: relative;
 }
 
+/* Overflow badge — shown when >4 of the heaviest plate are on the bar */
+.pc-plate-overflow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  border-radius: 3px;
+  border: 1.5px dashed;
+  font-size: 0.42rem;
+  font-weight: 800;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  margin: 0 2px;
+  flex-shrink: 0;
+  padding: 2px 0;
+  line-height: 1.1;
+  opacity: 0.85;
+}
+
 .pc-plate-rm::after {
   content: '×';
   position: absolute;

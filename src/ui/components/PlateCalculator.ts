@@ -79,6 +79,39 @@ function findConfig(weight: number, unit: DisplayUnit): PlateConfig | undefined 
   return PLATES[unit].find(p => Math.abs(p.weight - weight) < 0.001);
 }
 
+// Auto-consolidate small plates into bigger ones after manual adds.
+// Rule 1: sub-mid plates (< PLATES[2]) summing ≥ mid → upgrade to mid + remainder.
+// Rule 2: sub-big plates (< PLATES[0]) summing ≥ big → upgrade to big + remainder.
+function normalizePlates(unit: DisplayUnit): void {
+  const plates = PLATES[unit];
+  const bigW = plates[0].weight;
+  const midW = plates[2].weight;
+
+  // Rule 1
+  const subMidSum = _plates.filter(w => w < midW - 0.001).reduce((a, b) => a + b, 0);
+  if (subMidSum >= midW - 0.001) {
+    _plates = _plates.filter(w => w >= midW - 0.001);
+    let rem = subMidSum;
+    for (const p of plates.filter(p => p.weight <= midW + 0.001)) {
+      while (rem >= p.weight - 0.001) { _plates.push(p.weight); rem -= p.weight; }
+    }
+    _plates.sort((a, b) => b - a);
+  }
+
+  // Rule 2
+  const subBigSum = _plates.filter(w => w < bigW - 0.001).reduce((a, b) => a + b, 0);
+  if (subBigSum >= bigW - 0.001) {
+    _plates = _plates.filter(w => w >= bigW - 0.001);
+    let rem = subBigSum;
+    for (const p of plates) {
+      while (rem >= p.weight - 0.001) { _plates.push(p.weight); rem -= p.weight; }
+    }
+    _plates.sort((a, b) => b - a);
+  }
+}
+
+const BIG_PLATE_RENDER_LIMIT = 4;
+
 // ─── Build ────────────────────────────────────────────────────────────────────
 
 function buildOverlay(opts: PlateCalcOptions): HTMLElement {
@@ -163,22 +196,37 @@ function renderSheet(sheet: HTMLElement, opts: PlateCalcOptions): void {
 }
 
 function renderBarRow(unit: DisplayUnit): string {
-  // Left side: reversed (lightest/outermost first, going right toward bar)
-  const leftPlates = [..._plates].reverse()
-    .map(w => plateDiv(w, unit, false))
-    .join('');
-  // Right side: normal order (heaviest/innermost first, clickable)
-  const rightPlates = _plates
-    .map((w, i) => plateDiv(w, unit, true, i))
-    .join('');
+  const bigW = PLATES[unit][0].weight;
+  const bigCfg = findConfig(bigW, unit)!;
+  const bigCount = _plates.filter(w => Math.abs(w - bigW) < 0.001).length;
+  const overflowCount = Math.max(0, bigCount - BIG_PLATE_RENDER_LIMIT);
+  const visibleBigCount = bigCount - overflowCount;
+  // Smaller plates follow big plates in the sorted array
+  const otherPlates = _plates.filter(w => Math.abs(w - bigW) >= 0.001);
+
+  // Right side: innermost big plates → overflow badge → lighter plates (all clickable)
+  let rightHtml = '';
+  for (let i = 0; i < visibleBigCount; i++) rightHtml += plateDiv(bigW, unit, true, i);
+  if (overflowCount > 0) rightHtml += overflowBadge(overflowCount, bigCfg);
+  otherPlates.forEach((w, i) => { rightHtml += plateDiv(w, unit, true, bigCount + i); });
+
+  // Left side: mirror (outermost = lightest first)
+  let leftHtml = '';
+  [...otherPlates].reverse().forEach(w => { leftHtml += plateDiv(w, unit, false); });
+  if (overflowCount > 0) leftHtml += overflowBadge(overflowCount, bigCfg);
+  for (let i = 0; i < visibleBigCount; i++) leftHtml += plateDiv(bigW, unit, false);
 
   return `
-    <div class="pc-side">${leftPlates}</div>
+    <div class="pc-side">${leftHtml}</div>
     <div class="pc-collar"></div>
     <div class="pc-sleeve"></div>
     <div class="pc-collar"></div>
-    <div class="pc-side">${rightPlates}</div>
+    <div class="pc-side">${rightHtml}</div>
   `;
+}
+
+function overflowBadge(count: number, cfg: PlateConfig): string {
+  return `<div class="pc-plate-overflow" style="height:${cfg.h}px;border-color:${cfg.color};color:${cfg.color};">${count}×${cfg.label}</div>`;
 }
 
 function plateDiv(weight: number, unit: DisplayUnit, clickable: boolean, index?: number): string {
@@ -212,6 +260,7 @@ function wireSheet(sheet: HTMLElement, opts: PlateCalcOptions): void {
       // Insert maintaining heaviest-first order
       const idx = _plates.findIndex(p => p < w);
       if (idx === -1) _plates.push(w); else _plates.splice(idx, 0, w);
+      normalizePlates(opts.displayUnit);
       numInput.value = String(plateTotal(opts.displayUnit));
       refresh(sheet, opts, true);
     });
