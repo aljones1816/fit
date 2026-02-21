@@ -7,7 +7,6 @@ import { initializeDefaultExercises, deduplicateExercises } from './data/initDef
 import { onAuthStateChanged } from './firebase/auth';
 import { initialSync, initAutoSync } from './firebase/sync';
 import { applyTheme, getThemeMode } from './data/queries';
-import { showAuthPrompt, closeAuthPrompt } from './ui/components/AuthPrompt';
 
 // Select-all on focus for number inputs — tap to replace, not tap to position cursor
 document.addEventListener('focus', e => {
@@ -39,22 +38,18 @@ async function init() {
     registerServiceWorker();
   }
 
-  const appEl = document.getElementById('app')!;
+  // Seed local defaults up front so the app is immediately usable in local-only mode.
+  await initializeDefaultExercises();
+  // One-time cleanup: collapse duplicate exercises created by earlier bugs.
+  await deduplicateExercises();
 
-  // Wire up Firebase auth — gate the app behind sign-in
+  // Wire up Firebase auth — sync is optional and enabled when signed in.
   onAuthStateChanged(async (user) => {
     if (user) {
-      appEl.style.visibility = 'visible';
-      closeAuthPrompt();
       await initialSync(user.uid);
-      // Seed defaults AFTER sync so Firestore data arrives first.
-      // If the user already has exercises (from sync), this is a no-op.
+      // Re-run seeding/cleanup after pull so remote data and defaults stay coherent.
       await initializeDefaultExercises();
-      // One-time cleanup: collapse duplicate exercises created by earlier bugs.
       await deduplicateExercises();
-    } else {
-      appEl.style.visibility = 'hidden';
-      showAuthPrompt();
     }
   });
 

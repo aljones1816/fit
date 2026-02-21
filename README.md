@@ -1,6 +1,6 @@
 # Offline Workout Log PWA
 
-An **offline-first**, **iPhone-optimized** Progressive Web App for logging workouts. No accounts, no backend—all data stored locally on your device.
+An **offline-first**, **iPhone-optimized** Progressive Web App for logging workouts. Works fully local with no account; optional sign-in enables cloud backup/sync.
 
 ## Features
 
@@ -180,7 +180,8 @@ All data is stored in IndexedDB:
 
 ## Key Design Decisions
 
-- **No Backend**: Everything is local. No sync, no accounts.
+- **Local-First by Default**: Core logging works fully local with no account required.
+- **Optional Sync**: Sign in to enable Firebase cloud backup/sync across devices.
 - **Weights Stored in lbs**: Even if you display in kg, storage is always lbs (0.5 lb precision).
 - **e1RM Formula**: Epley formula: `weight × (1 + reps/30)`
 - **Previous Sets**: Pulled from `exercise_last` cache (updated when ending a workout)
