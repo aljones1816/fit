@@ -6,7 +6,7 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
-import { firestore } from './init';
+import { firestore, isFirebaseConfigured } from './init';
 import { getCurrentUser } from './auth';
 import {
   getQueue,
@@ -51,6 +51,9 @@ const COLLECTIONS = [
 type CollectionName = typeof COLLECTIONS[number];
 
 function userCol(uid: string, col: CollectionName) {
+  if (!firestore) {
+    throw new Error('Cloud sync is not configured for this build.');
+  }
   return collection(firestore, 'users', uid, col);
 }
 
@@ -62,6 +65,7 @@ function stripUndefined(obj: Record<string, unknown>): Record<string, unknown> {
 // ─── Push (local → Firestore) ────────────────────────────────────────────────
 
 async function flushQueue(uid: string): Promise<void> {
+  if (!firestore || !isFirebaseConfigured) return;
   const queue = await getQueue();
   if (queue.length === 0) return;
 
@@ -104,6 +108,7 @@ async function flushQueue(uid: string): Promise<void> {
 // ─── Pull (Firestore → local) ────────────────────────────────────────────────
 
 async function pullChanges(uid: string): Promise<void> {
+  if (!firestore || !isFirebaseConfigured) return;
   const lastPulledAt = await getSetting<number>('sync.lastPulledAt') ?? 0;
   const db = await getDB();
 
@@ -146,6 +151,7 @@ async function pullChanges(uid: string): Promise<void> {
 // ─── Initial full push (first sign-in with existing local data) ──────────────
 
 async function initialPush(uid: string): Promise<void> {
+  if (!firestore || !isFirebaseConfigured) return;
   const db = await getDB();
   const now = Date.now();
   const batch = writeBatch(firestore);
@@ -166,6 +172,7 @@ async function initialPush(uid: string): Promise<void> {
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 export async function syncNow(): Promise<void> {
+  if (!isFirebaseConfigured || !firestore) return;
   const user = getCurrentUser();
   if (!user) return;
   if (!navigator.onLine) return; // offline — queue already holds changes, will flush on reconnect
@@ -185,6 +192,7 @@ export async function syncNow(): Promise<void> {
 
 // Called once on first sign-in to upload any existing local data
 export async function initialSync(uid: string): Promise<void> {
+  if (!isFirebaseConfigured || !firestore) return;
   if (!navigator.onLine) return;
   setStatus('syncing');
   try {
@@ -208,6 +216,7 @@ export function trySyncNow(): void {
 
 // Wire up auto-sync on coming back online
 export function initAutoSync(): void {
+  if (!isFirebaseConfigured || !firestore) return;
   window.addEventListener('online', () => {
     syncNow().catch(() => {});
   });

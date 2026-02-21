@@ -11,11 +11,22 @@ const firebaseConfig = {
   appId:             import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Initialise once; reuse if HMR re-runs this module
-const app: FirebaseApp =
-  getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const requiredFields = Object.values(firebaseConfig);
+export const isFirebaseConfigured = requiredFields.every(
+  value => typeof value === 'string' && value.trim().length > 0,
+);
 
-const firestore: Firestore = getFirestore(app);
-const auth: Auth = getAuth(app);
+let app: FirebaseApp | null = null;
+let firestore: Firestore | null = null;
+let auth: Auth | null = null;
+
+if (isFirebaseConfigured) {
+  // Initialise once; reuse if HMR re-runs this module
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+  firestore = getFirestore(app);
+  auth = getAuth(app);
+} else {
+  console.info('[firebase] Missing VITE_FIREBASE_* config; running in local-only mode.');
+}
 
 export { app, firestore, auth };

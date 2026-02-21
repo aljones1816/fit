@@ -31,10 +31,10 @@ if (KEYS.every(k => process.env[k])) {
 // Local dev mode: parse secrets.txt
 const secretsPath = path.join(root, 'secrets.txt');
 if (!fs.existsSync(secretsPath)) {
-  console.error('Error: secrets.txt not found and VITE_FIREBASE_* env vars are not set.');
-  console.error('Local dev: create secrets.txt with your Firebase web config.');
-  console.error('CI: set VITE_FIREBASE_* as repository secrets in GitHub.');
-  process.exit(1);
+  const out = KEYS.map(k => `${k}=`).join('\n') + '\n';
+  fs.writeFileSync(envPath, out);
+  console.warn('Warning: Firebase secrets not found. Building in local-only mode (cloud sync disabled).');
+  process.exit(0);
 }
 
 const content = fs.readFileSync(secretsPath, 'utf8');

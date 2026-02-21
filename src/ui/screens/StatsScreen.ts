@@ -14,6 +14,7 @@ import { renderHeatmap } from '../components/Heatmap';
 import { exportBackup, importBackup } from '../../data/backup';
 import { getCurrentUser, signIn, signUp, signOut } from '../../firebase/auth';
 import { getSyncStatus } from '../../firebase/sync';
+import { isFirebaseConfigured } from '../../firebase/init';
 
 export async function renderStatsScreen() {
   const screen = document.getElementById('screen');
@@ -57,7 +58,11 @@ export async function renderStatsScreen() {
 
       <div class="card mb-2">
         <h3 class="card-title mb-2">Account</h3>
-        ${user ? renderSignedInUI(user.email ?? user.uid, syncStatus) : renderSignedOutUI()}
+        ${!isFirebaseConfigured
+          ? renderSyncUnavailableUI()
+          : user
+            ? renderSignedInUI(user.email ?? user.uid, syncStatus)
+            : renderSignedOutUI()}
       </div>
 
       <div class="card mb-2">
@@ -163,6 +168,14 @@ function renderSignedOutUI(): string {
       <button class="btn btn-primary" id="sync-sign-in-btn" style="flex: 1;">Sign In</button>
       <button class="btn btn-secondary" id="sync-sign-up-btn" style="flex: 1;">Create Account</button>
     </div>
+  `;
+}
+
+function renderSyncUnavailableUI(): string {
+  return `
+    <p class="text-muted" style="font-size: 0.875rem; margin-bottom: 0;">
+      Cloud sync is not configured in this build. The app is running in local-only mode.
+    </p>
   `;
 }
 
