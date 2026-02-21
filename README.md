@@ -110,7 +110,7 @@ The GitHub Action will automatically build and deploy to Pages.
 2. Tap the **Share** button (square with arrow)
 3. Scroll down and tap **Add to Home Screen**
 4. Tap **Add**
-5. Open the app from your home screen
+5. Open the app from your home screen 
 
 The app will work offline after the first load.
 
