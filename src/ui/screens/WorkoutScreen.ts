@@ -25,6 +25,7 @@ import { showModal } from '../components/Modal';
 import { formatWeight, parseEnteredWeight, formatVolume } from '../../data/units';
 import { renderTimer, attachTimerHandlers, initTimer } from '../components/Timer';
 import { trySyncNow } from '../../firebase/sync';
+import { showPlateCalculator } from '../components/PlateCalculator';
 
 let activeSession: Session | null = null;
 let sessionSets: SetEntry[] = [];
@@ -338,13 +339,14 @@ function renderExercises() {
                   <td style="padding: 0.25rem; text-align: center;">
                     <input
                       type="number"
-                      inputmode="decimal"
+                      inputmode="none"
                       value="${set.weightLbs !== undefined ? (displayUnit === 'kg' ? (set.weightLbs * 0.45359237).toFixed(2) : set.weightLbs.toFixed(1)) : ''}"
                       data-set-id="${set.id}"
                       data-field="weight"
                       placeholder="0"
                       step="${displayUnit === 'kg' ? '0.25' : '0.5'}"
-                      style="width: 80px; padding: 0.5rem; text-align: center; min-height: 44px;"
+                      style="width: 80px; padding: 0.5rem; text-align: center; min-height: 44px; cursor: pointer;"
+                      readonly
                     />
                   </td>
                   <td style="padding: 0.25rem; text-align: center;">
@@ -375,6 +377,21 @@ function renderExercises() {
   // Attach event listeners
   container.querySelectorAll('input[data-set-id]').forEach(input => {
     input.addEventListener('change', handleSetInputChange);
+  });
+
+  // Weight inputs open the plate calculator instead of the native keyboard
+  container.querySelectorAll<HTMLInputElement>('input[data-field="weight"]').forEach(input => {
+    input.addEventListener('click', () => {
+      const currentVal = input.value ? parseFloat(input.value) : undefined;
+      showPlateCalculator({
+        value: currentVal,
+        displayUnit,
+        onConfirm: (val) => {
+          input.value = displayUnit === 'kg' ? val.toFixed(2) : val.toFixed(1);
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        },
+      });
+    });
   });
 
   container.querySelectorAll('[data-action="add-set"]').forEach(btn => {

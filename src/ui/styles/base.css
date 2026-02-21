@@ -472,3 +472,232 @@ input[type="number"]::-webkit-outer-spin-button {
   cursor: pointer;
 }
 
+
+/* ── Plate Calculator ── iOS-style bottom sheet ───────────────────────────── */
+
+.pc-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  z-index: 4000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+}
+
+.pc-sheet {
+  background: var(--bg-secondary);
+  border-radius: 20px 20px 0 0;
+  padding: 0 1rem calc(1rem + env(safe-area-inset-bottom));
+  width: 100%;
+  max-height: 85%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  transform: translateY(100%);
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.pc-visible .pc-sheet {
+  transform: translateY(0);
+}
+
+.pc-handle {
+  width: 36px;
+  height: 5px;
+  background: var(--border-color);
+  border-radius: 3px;
+  margin: 10px auto 1.25rem;
+  opacity: 0.6;
+}
+
+/* Weight input row */
+.pc-weight-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.pc-num-input {
+  font-size: 2.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  width: 160px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--accent);
+  border-radius: 0;
+  padding: 0.25rem 0.5rem;
+  color: var(--text-primary);
+  min-height: unset;
+}
+
+.pc-num-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.pc-num-unit {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  align-self: flex-end;
+  padding-bottom: 0.5rem;
+}
+
+/* Bar label */
+.pc-bar-label {
+  text-align: center;
+  font-size: 0.8rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Bar visualization */
+.pc-bar-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5rem 0 0.75rem;
+  scrollbar-width: none;
+}
+
+.pc-bar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.pc-bar-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: max-content;
+  height: 80px;
+  padding: 0 1rem;
+}
+
+.pc-side {
+  display: flex;
+  align-items: center;
+}
+
+.pc-collar {
+  width: 10px;
+  height: 28px;
+  background: #9E9E9E;
+  border-radius: 2px;
+}
+
+.pc-sleeve {
+  width: 80px;
+  height: 12px;
+  background: #BDBDBD;
+  border-radius: 2px;
+}
+
+.pc-plate {
+  border-radius: 3px;
+  margin: 0 1px;
+  flex-shrink: 0;
+}
+
+.pc-plate-rm {
+  cursor: pointer;
+  position: relative;
+}
+
+.pc-plate-rm::after {
+  content: '×';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.65rem;
+  font-weight: 700;
+  opacity: 0;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 3px;
+  transition: opacity 0.15s;
+}
+
+.pc-plate-rm:active::after {
+  opacity: 1;
+}
+
+/* Plate add buttons */
+.pc-plate-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.pc-add-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: 12px;
+  border-left: 4px solid var(--plate-color, #888);
+  padding: 0.625rem 0.5rem;
+  min-height: 56px;
+  gap: 0.1rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.pc-add-btn:active {
+  opacity: 0.6;
+}
+
+.pc-add-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pc-add-unit {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+/* Footer */
+.pc-footer {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.pc-action-btn {
+  flex: 1;
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: 12px;
+  padding: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-height: 48px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  font-family: inherit;
+}
+
+.pc-action-btn:active {
+  opacity: 0.7;
+}
+
+.pc-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pc-done-btn {
+  flex: 2;
+  border-radius: 12px;
+}
