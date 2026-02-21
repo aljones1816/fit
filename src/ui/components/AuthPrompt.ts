@@ -5,6 +5,7 @@ import { showToast } from './Toast';
 type AuthMode = 'signin' | 'signup';
 
 let _overlay: HTMLElement | null = null;
+let _cleanupViewport: (() => void) | null = null;
 
 export function showAuthPrompt(): void {
   if (_overlay) return;
@@ -15,6 +16,8 @@ export function showAuthPrompt(): void {
 
 export function closeAuthPrompt(): void {
   if (!_overlay) return;
+  _cleanupViewport?.();
+  _cleanupViewport = null;
   _overlay.classList.remove('auth-prompt--visible');
   const el = _overlay;
   _overlay = null;
@@ -28,6 +31,22 @@ function buildOverlay(): HTMLElement {
   const sheet = document.createElement('div');
   sheet.className = 'auth-prompt-sheet';
   overlay.appendChild(sheet);
+
+  // Shrink overlay to the visible viewport so the sheet stays above the keyboard
+  const vv = window.visualViewport;
+  if (vv) {
+    const update = () => {
+      overlay.style.height = `${vv.height}px`;
+      overlay.style.top = `${vv.offsetTop}px`;
+    };
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    update();
+    _cleanupViewport = () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }
 
   renderInto(sheet, 'signin');
   return overlay;

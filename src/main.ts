@@ -31,9 +31,6 @@ async function init() {
   const themeMode = await getThemeMode();
   applyTheme(themeMode);
 
-  // Seed default exercises on first load
-  await initializeDefaultExercises();
-
   // Initialize router and tabs
   initRouter();
 
@@ -50,6 +47,9 @@ async function init() {
       appEl.style.visibility = 'visible';
       closeAuthPrompt();
       await initialSync(user.uid);
+      // Seed defaults AFTER sync so Firestore data arrives first.
+      // If the user already has exercises (from sync), this is a no-op.
+      await initializeDefaultExercises();
     } else {
       appEl.style.visibility = 'hidden';
       showAuthPrompt();
