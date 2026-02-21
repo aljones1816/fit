@@ -173,7 +173,7 @@ function renderTemplatesList() {
         ${hasActiveWorkout ? `
           <div class="text-muted" style="font-size: 0.875rem;">Workout in progress</div>
         ` : `
-          <button class="btn btn-primary" data-template-id="${tmpl.id}" data-action="start">
+          <button class="btn btn-primary" type="button" data-template-id="${tmpl.id}" data-action="start" style="cursor: pointer;">
             Start
           </button>
         `}
@@ -187,10 +187,10 @@ function renderTemplatesList() {
           .join('')}
       </div>
       <div class="flex gap-1">
-        <button class="btn btn-secondary btn-small" data-template-id="${tmpl.id}" data-action="edit">
+        <button class="btn btn-secondary btn-small" type="button" data-template-id="${tmpl.id}" data-action="edit" style="cursor: pointer;">
           Edit
         </button>
-        <button class="btn btn-danger btn-small" data-template-id="${tmpl.id}" data-action="delete">
+        <button class="btn btn-danger btn-small" type="button" data-template-id="${tmpl.id}" data-action="delete" style="cursor: pointer;">
           Delete
         </button>
       </div>
@@ -199,22 +199,22 @@ function renderTemplatesList() {
     )
     .join('');
 
-  // Attach handlers
-  container.querySelectorAll('[data-template-id]').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const el = e.currentTarget as HTMLElement;
-      const id = el.dataset.templateId!;
-      const action = el.dataset.action!;
+  // Use event delegation on the container with onclick for robustness
+  container.onclick = async (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-template-id][data-action]');
+    if (!btn) return;
 
-      if (action === 'start') {
-        await handleStartWorkout(id);
-      } else if (action === 'edit') {
-        await handleEditTemplate(id);
-      } else if (action === 'delete') {
-        await handleDeleteTemplate(id);
-      }
-    });
-  });
+    const id = btn.dataset.templateId!;
+    const action = btn.dataset.action!;
+
+    if (action === 'start') {
+      await handleStartWorkout(id);
+    } else if (action === 'edit') {
+      await handleEditTemplate(id);
+    } else if (action === 'delete') {
+      await handleDeleteTemplate(id);
+    }
+  };
 }
 
 function handleAddExercise() {

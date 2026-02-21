@@ -5,6 +5,8 @@ let timerSeconds = 90;
 let timerRemaining = 90;
 let timerState: 'idle' | 'running' | 'finished' = 'idle';
 
+// ── Public API ────────────────────────────────────────────────────────────────
+
 export function renderTimer(): string {
   return `
     <div class="card" id="timer-card" style="background: var(--bg-tertiary);margin-bottom:0;">
@@ -24,51 +26,112 @@ export function renderTimer(): string {
   `;
 }
 
+export function renderTimerFab(): string {
+  const r = 24;
+  const circ = 2 * Math.PI * r;
+  return `
+    <button id="timer-fab" class="timer-fab timer-fab--hidden" aria-label="Rest timer">
+      <svg class="timer-fab-svg" viewBox="0 0 56 56" width="56" height="56">
+        <circle cx="28" cy="28" r="${r}" class="timer-fab-track"/>
+        <circle cx="28" cy="28" r="${r}" class="timer-fab-ring"
+          style="stroke-dasharray:${circ.toFixed(3)};stroke-dashoffset:0;"/>
+      </svg>
+      <span class="timer-fab-icon">⏱</span>
+      <span class="timer-fab-time"></span>
+    </button>
+  `;
+}
+
 export function attachTimerHandlers() {
-  const buttons = document.querySelectorAll('[data-timer-action]');
-  buttons.forEach(btn => {
+  document.querySelectorAll('[data-timer-action]').forEach(btn => {
     const action = (btn as HTMLElement).dataset.timerAction;
     btn.addEventListener('click', () => {
-      if (action === 'start') {
-        handleTimerStart();
-      } else if (action === 'plus') {
-        handleTimerAdjust(30);
-      } else if (action === 'minus') {
-        handleTimerAdjust(-30);
-      }
+      if (action === 'start') handleTimerStart();
+      else if (action === 'plus') handleTimerAdjust(30);
+      else if (action === 'minus') handleTimerAdjust(-30);
     });
   });
 }
 
 export async function initTimer() {
+  // Clear any running interval so re-entering the workout screen can't stack timers
+  if (timerInterval !== null) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
   const defaultSeconds = await getTimerDefault();
   timerSeconds = defaultSeconds;
   timerRemaining = defaultSeconds;
   timerState = 'idle';
 }
 
+// ── Timer sheet (popup) ───────────────────────────────────────────────────────
+
+let _timerSheet: HTMLElement | null = null;
+
+export function showTimerSheet(): void {
+  if (_timerSheet) return;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'timer-sheet-overlay';
+
+  const sheet = document.createElement('div');
+  sheet.className = 'timer-sheet';
+  sheet.innerHTML = `
+    <div class="pc-handle"></div>
+    <div id="timer-sheet-display" class="timer-sheet-display">${formatTime(timerRemaining)}</div>
+    <div class="timer-sheet-controls">
+      <button class="btn btn-secondary" data-sheet-action="minus">-30s</button>
+      <button class="btn btn-primary" data-sheet-action="start">${timerState === 'running' ? 'Stop' : 'Start'}</button>
+      <button class="btn btn-secondary" data-sheet-action="plus">+30s</button>
+    </div>
+  `;
+
+  overlay.appendChild(sheet);
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) closeTimerSheet();
+  });
+
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('timer-sheet--visible'));
+  _timerSheet = overlay;
+
+  sheet.querySelectorAll('[data-sheet-action]').forEach(btn => {
+    const action = (btn as HTMLElement).dataset.sheetAction;
+    btn.addEventListener('click', () => {
+      if (action === 'start') handleTimerStart();
+      else if (action === 'plus') handleTimerAdjust(30);
+      else if (action === 'minus') handleTimerAdjust(-30);
+    });
+  });
+}
+
+export function closeTimerSheet(): void {
+  if (!_timerSheet) return;
+  _timerSheet.classList.remove('timer-sheet--visible');
+  const el = _timerSheet;
+  _timerSheet = null;
+  setTimeout(() => el.remove(), 280);
+}
+
+// ── Internal logic ────────────────────────────────────────────────────────────
+
 function handleTimerStart() {
   if (timerState === 'running') {
-    // Pause/stop
-    if (timerInterval !== null) {
-      clearInterval(timerInterval);
-      timerInterval = null;
-    }
+    if (timerInterval !== null) { clearInterval(timerInterval); timerInterval = null; }
     timerState = 'idle';
     updateTimerButton('Start');
   } else {
-    // Start
+    // Defensive: clear any stale interval before starting a new one
+    if (timerInterval !== null) { clearInterval(timerInterval); timerInterval = null; }
     timerState = 'running';
     updateTimerButton('Stop');
-
     timerInterval = window.setInterval(() => {
       timerRemaining--;
-
       if (timerRemaining <= 0) {
         timerRemaining = 0;
         handleTimerComplete();
       }
-
       updateTimerDisplay();
     }, 1000);
   }
@@ -76,50 +139,90 @@ function handleTimerStart() {
 
 function handleTimerAdjust(delta: number) {
   timerSeconds = Math.max(10, timerSeconds + delta);
-
   if (timerState === 'idle' || timerState === 'finished') {
     timerRemaining = timerSeconds;
   } else {
     timerRemaining = Math.max(0, timerRemaining + delta);
   }
-
   updateTimerDisplay();
 }
 
 function handleTimerComplete() {
-  if (timerInterval !== null) {
-    clearInterval(timerInterval);
-    timerInterval = null;
-  }
-
+  if (timerInterval !== null) { clearInterval(timerInterval); timerInterval = null; }
   timerState = 'idle';
   timerRemaining = timerSeconds;
   updateTimerButton('Start');
-
-  // Alert: sound + vibration + visual
   playTimerAlert();
   vibrateDevice();
-  flashTimerCard();
+  flashTimerComplete();
 }
 
 function updateTimerDisplay() {
-  const display = document.getElementById('timer-display');
-  if (display) {
+  // Top-bar / in-page timer card
+  const displays = document.querySelectorAll('#timer-display, #timer-sheet-display');
+  displays.forEach(display => {
     display.textContent = formatTime(timerRemaining);
+    (display as HTMLElement).style.color = timerRemaining === 0 ? 'var(--success)' : '';
+  });
 
-    // Color change when finished
-    if (timerRemaining === 0) {
-      display.style.color = 'var(--success)';
-    } else {
-      display.style.color = '';
-    }
-  }
+  updateFab();
 }
 
 function updateTimerButton(text: string) {
-  const btn = document.querySelector('[data-timer-action="start"]');
-  if (btn) {
+  const buttons = document.querySelectorAll('[data-timer-action="start"], [data-sheet-action="start"]');
+  buttons.forEach(btn => {
     btn.textContent = text;
+  });
+}
+
+function updateFab() {
+  const fab = document.getElementById('timer-fab');
+  if (!fab) return;
+
+  fab.classList.toggle('timer-fab--active', timerState === 'running');
+
+  // Time label — only visible while running
+  const timeEl = fab.querySelector<HTMLElement>('.timer-fab-time');
+  if (timeEl) {
+    if (timerState === 'running') {
+      timeEl.textContent = formatTime(timerRemaining);
+      timeEl.style.display = '';
+    } else {
+      timeEl.textContent = '';
+      timeEl.style.display = 'none';
+    }
+  }
+
+  // Progress ring
+  const ring = fab.querySelector<SVGCircleElement>('.timer-fab-ring');
+  if (ring) {
+    const r = 24;
+    const circ = 2 * Math.PI * r;
+    const progress = timerSeconds > 0 ? timerRemaining / timerSeconds : 1;
+    ring.style.strokeDashoffset = String(circ * (1 - progress));
+    ring.style.stroke =
+      timerState === 'running'
+        ? timerRemaining < 10
+          ? 'var(--danger)'
+          : 'var(--accent)'
+        : 'var(--border-color)';
+  }
+}
+
+function flashTimerComplete() {
+  // Flash the in-page card
+  const card = document.getElementById('timer-card');
+  if (card) {
+    card.style.background = 'var(--success)';
+    card.style.transition = 'background 0.3s';
+    setTimeout(() => { card.style.background = ''; }, 1000);
+  }
+
+  // Pulse the FAB
+  const fab = document.getElementById('timer-fab');
+  if (fab) {
+    fab.classList.add('timer-fab--flash');
+    setTimeout(() => fab.classList.remove('timer-fab--flash'), 1400);
   }
 }
 
@@ -134,40 +237,19 @@ function playTimerAlert() {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
-
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
-
     oscillator.frequency.value = 800;
     oscillator.type = 'sine';
-
     gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.5);
-  } catch (e) {
-    console.log('Audio not available');
+  } catch {
+    // Audio not available
   }
 }
 
 function vibrateDevice() {
-  if ('vibrate' in navigator) {
-    navigator.vibrate([200, 100, 200]);
-  }
+  if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
 }
-
-function flashTimerCard() {
-  const card = document.getElementById('timer-card');
-  if (!card) return;
-
-  const originalBg = card.style.background;
-  card.style.background = 'var(--success)';
-  card.style.transition = 'background 0.3s';
-
-  setTimeout(() => {
-    card.style.background = originalBg;
-  }, 1000);
-}
-
-// Initialize timer when module loads (removed - will be called from WorkoutScreen)

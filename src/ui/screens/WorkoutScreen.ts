@@ -23,7 +23,7 @@ import type { Session, SetEntry, Exercise, ExerciseLast, DisplayUnit, Template, 
 import { showToast } from '../components/Toast';
 import { showModal } from '../components/Modal';
 import { formatWeight, parseEnteredWeight, formatVolume } from '../../data/units';
-import { renderTimer, attachTimerHandlers, initTimer } from '../components/Timer';
+import { renderTimer, renderTimerFab, attachTimerHandlers, initTimer, showTimerSheet } from '../components/Timer';
 import { trySyncNow } from '../../firebase/sync';
 import { showPlateCalculator } from '../components/PlateCalculator';
 
@@ -131,7 +131,7 @@ export async function renderWorkoutScreen() {
     }
 
     screen.innerHTML = `
-      <div>
+      <div id="workout-home">
         <h1 class="mb-2">Workout</h1>
 
         ${lastWorkoutHtml ? `
@@ -150,6 +150,15 @@ export async function renderWorkoutScreen() {
       </div>
     `;
 
+    // Global click delegator for the workout home screen
+    screen.onclick = async (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>('button[data-template-id]');
+      if (btn) {
+        const id = btn.dataset.templateId!;
+        await handleQuickStartWorkout(id);
+      }
+    };
+
     if (templates.length > 0) {
       renderQuickStartTemplates(templates);
     }
@@ -164,6 +173,9 @@ export async function renderWorkoutScreen() {
     await renderWorkoutScreen();
     return;
   }
+
+  // Clear home screen delegator
+  screen.onclick = null;
 
   // Load session data
   sessionSets = await getSessionSets(activeSession.id);
@@ -196,8 +208,8 @@ export async function renderWorkoutScreen() {
   }
 
   screen.innerHTML = `
-    <div>
-      <!-- Fixed top bar: workout header + rest timer -->
+    <div id="active-workout-container">
+      <!-- Fixed top bar: workout header only -->
       <div id="workout-top-bar" style="
         position:fixed;
         top:env(safe-area-inset-top);
@@ -207,7 +219,7 @@ export async function renderWorkoutScreen() {
         padding:0.5rem;
         z-index:50;
       ">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
           <h1 style="margin:0;font-size:1.5rem;">${workoutTitle}</h1>
           <div style="text-align:right;">
             <div id="workout-duration" style="font-size:1.25rem;font-weight:600;font-variant-numeric:tabular-nums;">0:00</div>
@@ -216,16 +228,18 @@ export async function renderWorkoutScreen() {
             </div>
           </div>
         </div>
-        ${renderTimer()}
       </div>
 
-      <!-- Exercises — padding-top set dynamically to clear the fixed top bar -->
+      <!-- Scrollable content: timer card first, then exercises -->
       <div id="workout-scroll-content">
+        <div id="timer-section" style="padding:0.5rem 0.5rem 0;">
+          ${renderTimer()}
+        </div>
         <div id="exercises-container" style="padding-bottom:140px;"></div>
       </div>
 
       <!-- Fixed bottom bar: workout actions -->
-      <div style="
+      <div id="workout-bottom-bar" style="
         display:flex;flex-direction:column;gap:0.5rem;
         position:fixed;
         bottom:calc(50px + env(safe-area-inset-bottom));
@@ -242,6 +256,9 @@ export async function renderWorkoutScreen() {
           End Workout
         </button>
       </div>
+
+      <!-- Floating timer button — visible when timer card is scrolled away -->
+      ${renderTimerFab()}
     </div>
   `;
 
@@ -254,12 +271,45 @@ export async function renderWorkoutScreen() {
   await initTimer();
   attachTimerHandlers();
 
+  // Floating timer FAB — show when the in-page timer card scrolls out of view.
+  const timerSection = document.getElementById('timer-section');
+  const timerFab = document.getElementById('timer-fab');
+  const topBar = document.getElementById('workout-top-bar');
+
+  if (timerSection && timerFab) {
+    // Initial state
+    timerFab.classList.add('timer-fab--hidden');
+
+    const topMargin = topBar ? topBar.offsetHeight + 10 : 10;
+    
+    // Cleanup any existing observer before creating a new one
+    if ((window as any)._timerObserver) {
+      (window as any)._timerObserver.disconnect();
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      // FAB is hidden IF the timer section is intersecting the visible area (below top bar)
+      const isVisible = entry.isIntersecting;
+      timerFab.classList.toggle('timer-fab--hidden', isVisible);
+    }, {
+      root: null, // Viewport root is more reliable for fixed elements overlap
+      rootMargin: `-${topMargin}px 0px 0px 0px`,
+      threshold: 0
+    });
+
+    observer.observe(timerSection);
+    (window as any)._timerObserver = observer;
+    
+    timerFab.onclick = () => showTimerSheet();
+  }
+
   // Measure the fixed top bar and push scroll content down accordingly
   requestAnimationFrame(() => {
-    const topBar = document.getElementById('workout-top-bar');
+    const topBarEl = document.getElementById('workout-top-bar');
     const scrollContent = document.getElementById('workout-scroll-content');
-    if (topBar && scrollContent) {
-      scrollContent.style.paddingTop = topBar.offsetHeight + 'px';
+    if (topBarEl && scrollContent) {
+      scrollContent.style.paddingTop = topBarEl.offsetHeight + 'px';
     }
   });
 
@@ -767,7 +817,7 @@ async function renderQuickStartTemplates(templates: Template[]) {
             ${tmpl.exerciseIds.length} exercise${tmpl.exerciseIds.length !== 1 ? 's' : ''}
           </div>
         </div>
-        <button class="btn btn-primary" data-template-id="${tmpl.id}">
+        <button class="btn btn-primary" type="button" data-template-id="${tmpl.id}" style="cursor: pointer;">
           Start
         </button>
       </div>
@@ -783,14 +833,6 @@ async function renderQuickStartTemplates(templates: Template[]) {
   `
     )
     .join('');
-
-  // Attach handlers
-  container.querySelectorAll('[data-template-id]').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const id = (e.currentTarget as HTMLElement).dataset.templateId!;
-      await handleQuickStartWorkout(id);
-    });
-  });
 }
 
 async function handleQuickStartWorkout(templateId: string) {

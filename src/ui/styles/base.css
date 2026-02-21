@@ -32,6 +32,7 @@ body {
 #screen {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 0.5rem;
   padding-bottom: calc(1rem + 60px); /* space for tabs */
 }
@@ -113,6 +114,9 @@ button {
   font-weight: 600;
   transition: all 0.2s;
   min-height: 48px; /* iOS tap target */
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .btn:active {
@@ -700,4 +704,134 @@ input[type="number"]::-webkit-outer-spin-button {
 .pc-done-btn {
   flex: 2;
   border-radius: 12px;
+}
+
+
+/* ── Timer FAB ───────────────────────────────────────────────────────────────── */
+
+.timer-fab {
+  position: fixed;
+  /* Sits above the bottom action bar (~130px) with a bit of extra gap */
+  bottom: calc(50px + env(safe-area-inset-bottom) + 8.5rem);
+  right: 1rem;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  border: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  z-index: 49;
+  cursor: pointer;
+  padding: 0;
+  transition: opacity 0.2s, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.timer-fab--hidden {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: scale(0.7) !important;
+  visibility: hidden !important;
+}
+
+.timer-fab--active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
+}
+
+/* SVG ring fills the button; rotated so progress starts at the top */
+.timer-fab-svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+.timer-fab-track {
+  fill: none;
+  stroke: var(--bg-tertiary);
+  stroke-width: 3;
+}
+
+.timer-fab-ring {
+  fill: none;
+  stroke: var(--border-color);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.95s linear, stroke 0.3s;
+}
+
+.timer-fab-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+  position: relative; /* stacks above the SVG */
+  transition: opacity 0.2s;
+}
+
+.timer-fab--active .timer-fab-icon {
+  opacity: 0.6;
+}
+
+.timer-fab-time {
+  font-size: 0.55rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  position: relative;
+  margin-top: -1px;
+  letter-spacing: -0.02em;
+}
+
+@keyframes timer-fab-flash {
+  0%, 100% { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+  50%       { box-shadow: 0 0 0 6px var(--success); }
+}
+
+.timer-fab--flash {
+  animation: timer-fab-flash 0.45s ease 3;
+}
+
+
+/* ── Timer Sheet (popup) ─────────────────────────────────────────────────────── */
+
+.timer-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 4500;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+}
+
+.timer-sheet {
+  background: var(--bg-secondary);
+  border-radius: 20px 20px 0 0;
+  padding: 0 1.5rem calc(2rem + env(safe-area-inset-bottom));
+  width: 100%;
+  transform: translateY(100%);
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.timer-sheet--visible .timer-sheet {
+  transform: translateY(0);
+}
+
+.timer-sheet-display {
+  font-size: 4.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.timer-sheet-controls {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.timer-sheet-controls .btn {
+  flex: 1;
 }
