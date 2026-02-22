@@ -118,7 +118,7 @@ export async function renderMoreScreen() {
       <div class="card mb-2">
         <div class="text-muted" style="font-size:0.875rem;">
           <div>SetLift · Version 1.0.0</div>
-          <div>Offline-first workout logging PWA</div>
+          <div>Offline-first workout logging</div>
         </div>
       </div>
     </div>

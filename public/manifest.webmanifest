@@ -1,7 +1,7 @@
 {
-  "name": "Workout Log",
-  "short_name": "Workout",
-  "description": "Offline-first workout logging PWA",
+  "name": "SetLift",
+  "short_name": "SetLift",
+  "description": "SetLift — offline-first workout logging",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0a0a0a",
