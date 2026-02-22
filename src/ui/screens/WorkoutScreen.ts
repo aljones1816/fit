@@ -18,6 +18,7 @@ import {
   getEndedSessions,
   createSession,
   deleteSetting,
+  createExercise,
 } from '../../data/queries';
 import type { Session, SetEntry, Exercise, ExerciseLast, DisplayUnit, Template, PRHit } from '../../data/models';
 import { showToast } from '../components/Toast';
@@ -547,13 +548,15 @@ async function handleAddExerciseToWorkout() {
       style="width:100%;margin-bottom:0.75rem;"
       autocomplete="off"
     />
-    <div id="${listId}" style="max-height:300px;overflow-y:auto;"></div>
+    <div id="${listId}" style="max-height:260px;overflow-y:auto;"></div>
+    <div id="create-ex-footer" style="display:none;"></div>
   `;
 
   let selectedExerciseId: string | null = null;
 
   const renderList = (query: string) => {
     const list = body.querySelector(`#${listId}`)!;
+    const footer = body.querySelector<HTMLElement>('#create-ex-footer')!;
     const filtered = allExercises
       .filter(ex => ex.name.toLowerCase().includes(query.toLowerCase()))
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -588,6 +591,39 @@ async function handleAddExerciseToWorkout() {
         renderList((body.querySelector(`#${searchId}`) as HTMLInputElement).value);
       });
     });
+
+    const trimmed = query.trim();
+    if (trimmed) {
+      footer.style.display = 'block';
+      footer.innerHTML = `
+        <div
+          id="create-ex-btn"
+          style="
+            padding:0.6rem 0.75rem;
+            border-radius:6px;
+            cursor:pointer;
+            color:var(--accent);
+            display:flex;align-items:center;gap:0.5rem;
+            border-top:1px solid var(--border-color);
+            margin-top:0.25rem;
+          "
+        >
+          <span style="font-size:1.1rem;font-weight:600;line-height:1;">+</span>
+          <span style="font-size:0.9rem;">Create &ldquo;${trimmed}&rdquo;</span>
+        </div>
+      `;
+      footer.querySelector('#create-ex-btn')!.addEventListener('click', async () => {
+        const newEx = await createExercise(trimmed);
+        allExercises.push(newEx);
+        selectedExerciseId = newEx.id;
+        (body.querySelector(`#${searchId}`) as HTMLInputElement).value = '';
+        footer.style.display = 'none';
+        renderList('');
+        showToast(`Created "${newEx.name}"`, 'success');
+      });
+    } else {
+      footer.style.display = 'none';
+    }
   };
 
   renderList('');

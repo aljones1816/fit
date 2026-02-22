@@ -30,6 +30,9 @@ export async function renderTemplatesScreen() {
   const screen = document.getElementById('screen');
   if (!screen) return;
 
+  // Clear any stale onclick delegator left by another screen (e.g. workout home)
+  screen.onclick = null;
+
   // Load data
   exercises = await getAllExercises();
   templates = await getAllTemplates();
@@ -61,6 +64,7 @@ export async function renderTemplatesScreen() {
               style="width: 100%; margin-bottom: 1rem; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-primary); color: var(--text-primary);"
             />
             <div id="exercises-list" style="max-height: 400px; overflow-y: auto;"></div>
+            <div id="exercises-create-footer" style="display:none;"></div>
           </div>
         </details>
       </div>
@@ -92,61 +96,88 @@ function handleExerciseSearch(e: Event) {
 
 function renderExercisesList() {
   const container = document.getElementById('exercises-list');
+  const footer = document.getElementById('exercises-create-footer');
   if (!container) return;
 
   if (exercises.length === 0) {
     container.innerHTML = '<p class="text-muted">No exercises yet. Load defaults or add your own.</p>';
-    return;
-  }
+  } else {
+    const filteredExercises = exercises
+      .filter(ex => ex.name.toLowerCase().includes(searchQuery))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
-  // Filter exercises by search query
-  const filteredExercises = exercises
-    .filter(ex => ex.name.toLowerCase().includes(searchQuery))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    if (filteredExercises.length === 0) {
+      container.innerHTML = '<p class="text-muted">No exercises match your search.</p>';
+    } else {
+      container.innerHTML = filteredExercises
+        .map(ex => `
+          <div style="padding: 0.5rem; border-bottom: 0.5px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.9rem;">${ex.name}</span>
+            <button class="btn btn-danger" data-exercise-id="${ex.id}" style="padding: 0.3rem 0.6rem; min-height: 32px; font-size: 0.875rem;">
+              Delete
+            </button>
+          </div>
+        `)
+        .join('');
 
-  if (filteredExercises.length === 0) {
-    container.innerHTML = '<p class="text-muted">No exercises match your search.</p>';
-    return;
-  }
+      container.querySelectorAll('[data-exercise-id]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const id = (e.currentTarget as HTMLElement).dataset.exerciseId!;
+          const exercise = exercises.find(ex => ex.id === id);
+          if (!exercise) return;
 
-  container.innerHTML = filteredExercises
-    .map(
-      ex => `
-    <div style="padding: 0.5rem; border-bottom: 0.5px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-      <span style="font-size: 0.9rem;">${ex.name}</span>
-      <button class="btn btn-danger" data-exercise-id="${ex.id}" style="padding: 0.3rem 0.6rem; min-height: 32px; font-size: 0.875rem;">
-        Delete
-      </button>
-    </div>
-  `
-    )
-    .join('');
-
-  // Attach delete handlers
-  container.querySelectorAll('[data-exercise-id]').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const id = (e.currentTarget as HTMLElement).dataset.exerciseId!;
-      const exercise = exercises.find(ex => ex.id === id);
-      if (!exercise) return;
-
-      showModal({
-        title: 'Delete Exercise',
-        body: `Delete "${exercise.name}"? Historical data will remain.`,
-        buttons: [
-          { text: 'Cancel', className: 'btn btn-secondary', onClick: () => {} },
-          {
-            text: 'Delete',
-            className: 'btn btn-danger',
-            onClick: async () => {
-              await deleteExercise(id);
-              showToast(`Deleted "${exercise.name}"`, 'success');
-              renderTemplatesScreen();
-            },
-          },
-        ],
+          showModal({
+            title: 'Delete Exercise',
+            body: `Delete "${exercise.name}"? Historical data will remain.`,
+            buttons: [
+              { text: 'Cancel', className: 'btn btn-secondary', onClick: () => {} },
+              {
+                text: 'Delete',
+                className: 'btn btn-danger',
+                onClick: async () => {
+                  await deleteExercise(id);
+                  showToast(`Deleted "${exercise.name}"`, 'success');
+                  renderTemplatesScreen();
+                },
+              },
+            ],
+          });
+        });
       });
-    });
-  });
+    }
+  }
+
+  if (footer) {
+    if (searchQuery.trim()) {
+      footer.style.display = 'block';
+      footer.innerHTML = `
+        <div
+          id="exercises-create-btn"
+          style="
+            padding:0.6rem 0.75rem;
+            border-radius:6px;
+            cursor:pointer;
+            color:var(--accent);
+            display:flex;align-items:center;gap:0.5rem;
+            border-top:1px solid var(--border-color);
+            margin-top:0.25rem;
+          "
+        >
+          <span style="font-size:1.1rem;font-weight:600;line-height:1;">+</span>
+          <span style="font-size:0.9rem;">Create &ldquo;${searchQuery.trim()}&rdquo;</span>
+        </div>
+      `;
+      footer.querySelector('#exercises-create-btn')!.addEventListener('click', async () => {
+        const name = searchQuery.trim();
+        await createExercise(name);
+        searchQuery = '';
+        showToast(`Created "${name}"`, 'success');
+        renderTemplatesScreen();
+      });
+    } else {
+      footer.style.display = 'none';
+    }
+  }
 }
 
 function renderTemplatesList() {
@@ -314,11 +345,13 @@ function showTemplateEditorModal(template?: Template) {
         style="width:100%;padding:0.6rem 0.75rem;border:1px solid var(--border-color);border-radius:10px;background:var(--bg-secondary);color:var(--text-primary);font-size:1rem;"
       />
     </div>
-    <div id="ex-selector-list" style="max-height:260px;overflow-y:auto;border:1px solid var(--border-color);border-radius:10px;"></div>
+    <div id="ex-selector-list" style="max-height:220px;overflow-y:auto;border:1px solid var(--border-color);border-radius:10px;"></div>
+    <div id="create-ex-footer" style="display:none;"></div>
   `;
 
   const renderList = (query: string) => {
     const container = body.querySelector<HTMLElement>('#ex-selector-list')!;
+    const footer = body.querySelector<HTMLElement>('#create-ex-footer')!;
     const q = query.toLowerCase().trim();
     const filtered = q ? sorted.filter(ex => ex.name.toLowerCase().includes(q)) : sorted;
     // Checked items float to the top; within each group keep alphabetical order
@@ -329,32 +362,65 @@ function showTemplateEditorModal(template?: Template) {
 
     if (visible.length === 0) {
       container.innerHTML = `<div style="padding:0.75rem;color:var(--text-secondary);font-size:0.9rem;">No matches</div>`;
-      return;
+    } else {
+      container.innerHTML = visible.map(ex => `
+        <label style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0.75rem;cursor:pointer;border-bottom:0.5px solid var(--border-color);">
+          <input
+            type="checkbox"
+            value="${ex.id}"
+            ${selectedIds.has(ex.id) ? 'checked' : ''}
+            style="width:20px;height:20px;flex-shrink:0;"
+          />
+          <span style="font-size:0.95rem;">${ex.name}</span>
+        </label>
+      `).join('');
+
+      container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          if (cb.checked) selectedIds.add(cb.value);
+          else selectedIds.delete(cb.value);
+
+          // Clear search on selection
+          const searchEl = body.querySelector<HTMLInputElement>('#ex-search-input')!;
+          searchEl.value = '';
+          renderList('');
+        });
+      });
     }
 
-    container.innerHTML = visible.map(ex => `
-      <label style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0.75rem;cursor:pointer;border-bottom:0.5px solid var(--border-color);">
-        <input
-          type="checkbox"
-          value="${ex.id}"
-          ${selectedIds.has(ex.id) ? 'checked' : ''}
-          style="width:20px;height:20px;flex-shrink:0;"
-        />
-        <span style="font-size:0.95rem;">${ex.name}</span>
-      </label>
-    `).join('');
-
-    container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(cb => {
-      cb.addEventListener('change', () => {
-        if (cb.checked) selectedIds.add(cb.value);
-        else selectedIds.delete(cb.value);
-
-        // Clear search on selection
+    if (q) {
+      footer.style.display = 'block';
+      footer.innerHTML = `
+        <div
+          id="create-ex-btn"
+          style="
+            padding:0.6rem 0.75rem;
+            border-radius:6px;
+            cursor:pointer;
+            color:var(--accent);
+            display:flex;align-items:center;gap:0.5rem;
+            border-top:1px solid var(--border-color);
+            margin-top:0.25rem;
+          "
+        >
+          <span style="font-size:1.1rem;font-weight:600;line-height:1;">+</span>
+          <span style="font-size:0.9rem;">Create &ldquo;${q}&rdquo;</span>
+        </div>
+      `;
+      footer.querySelector('#create-ex-btn')!.addEventListener('click', async () => {
+        const newEx = await createExercise(q);
+        sorted.push(newEx);
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        selectedIds.add(newEx.id);
         const searchEl = body.querySelector<HTMLInputElement>('#ex-search-input')!;
         searchEl.value = '';
+        footer.style.display = 'none';
         renderList('');
+        showToast(`Created "${newEx.name}"`, 'success');
       });
-    });
+    } else {
+      footer.style.display = 'none';
+    }
   };
 
   renderList('');
