@@ -402,3 +402,15 @@ export async function getTimerDefault(): Promise<number> {
 export async function setTimerDefault(seconds: number): Promise<void> {
   await setSetting('timer.defaultSeconds', seconds);
 }
+
+export async function getGoalWeightLbs(): Promise<number | undefined> {
+  return getSetting<number>('profile.goalWeightLbs');
+}
+
+export async function setGoalWeightLbs(lbs: number): Promise<void> {
+  await setSetting('profile.goalWeightLbs', lbs);
+}
+
+export async function clearGoalWeightLbs(): Promise<void> {
+  await deleteSetting('profile.goalWeightLbs');
+}
