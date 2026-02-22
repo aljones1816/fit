@@ -166,7 +166,7 @@ function handleSyncRow(user: ReturnType<typeof getCurrentUser>) {
             }
           },
         },
-        { text: 'Sign Out', className: 'btn btn-secondary', onClick: () => handleSignOut() },
+        { text: 'Sign Out', className: 'btn btn-secondary', closeOnClick: false, onClick: () => { closeModal(); handleSignOut(); } },
       ],
     });
   } else {
@@ -220,8 +220,13 @@ function showAuthModal(mode: 'signin' | 'signup') {
           try {
             if (isSignUp) {
               await signUp(email, password);
-              sendVerificationEmail().catch(() => {});
-              showToast('Account created! Check your email to verify your address.', 'success');
+              const verificationSent = await sendVerificationEmail().then(() => true).catch(() => false);
+              showToast(
+                verificationSent
+                  ? 'Account created! Check your email to verify your address.'
+                  : 'Account created!',
+                'success',
+              );
             } else {
               await signIn(email, password);
               showToast('Signed in! Syncing your data…', 'success');
