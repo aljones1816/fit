@@ -14,17 +14,20 @@ import { exportBackup, importBackup } from '../../data/backup';
 import { getCurrentUser, signIn, signUp, signOut } from '../../firebase/auth';
 import { isFirebaseConfigured } from '../../firebase/init';
 import { navigate } from '../../router';
+import { getEncryptionStatus } from '../../crypto/encryptionState';
+import { clearKey } from '../../crypto/keyVault';
 
 export async function renderMoreScreen() {
   const screen = document.getElementById('screen');
   if (!screen) return;
 
-  const [displayUnit, themeMode, lastBackup, goalLbs, user] = await Promise.all([
+  const [displayUnit, themeMode, lastBackup, goalLbs, user, encStatus] = await Promise.all([
     getDisplayUnit(),
     getThemeMode(),
     getSetting<number>('backup.lastExportedAt'),
     getGoalWeightLbs(),
     Promise.resolve(getCurrentUser()),
+    getEncryptionStatus(),
   ]);
 
   const goalDisplay = goalLbs != null
@@ -58,6 +61,15 @@ export async function renderMoreScreen() {
           <div class="more-row-body">
             <div class="more-row-title">Account &amp; Sync</div>
             <div class="more-row-subtitle">${syncSubtitle}</div>
+          </div>
+          <span class="more-row-chevron"><i class="ti ti-chevron-right"></i></span>
+        </div>
+        <div class="more-row-divider"></div>
+        <div class="more-row" id="more-encryption-row">
+          <span class="more-row-icon"><i class="ti ti-lock"></i></span>
+          <div class="more-row-body">
+            <div class="more-row-title">Encryption (E2EE)</div>
+            <div class="more-row-subtitle">${encStatus === 'off' ? 'Off — data stored in plaintext' : encStatus === 'active' ? 'Active — sync is encrypted' : 'Locked — enter passphrase to sync'}</div>
           </div>
           <span class="more-row-chevron"><i class="ti ti-chevron-right"></i></span>
         </div>
@@ -114,6 +126,7 @@ export async function renderMoreScreen() {
 
   document.getElementById('more-profile-row')?.addEventListener('click', () => navigate('profile'));
   document.getElementById('more-sync-row')?.addEventListener('click', () => handleSyncRow(user));
+  document.getElementById('more-encryption-row')?.addEventListener('click', () => navigate('encryption'));
 
   document.getElementById('more-export-row')?.addEventListener('click', handleExport);
   document.getElementById('more-import-row')?.addEventListener('click', handleImport);
@@ -206,6 +219,7 @@ function handleSignOut() {
         text: 'Sign Out',
         className: 'btn btn-danger',
         onClick: async () => {
+          clearKey();
           await signOut();
           showToast('Signed out', 'success');
           renderMoreScreen();

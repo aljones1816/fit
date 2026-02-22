@@ -8,6 +8,7 @@ import { initializeDefaultExercises, deduplicateExercises } from './data/initDef
 import { onAuthStateChanged } from './firebase/auth';
 import { initialSync, initAutoSync } from './firebase/sync';
 import { applyTheme, getThemeMode } from './data/queries';
+import { registerKeyCleanupOnUnload } from './crypto/keyVault';
 
 // Select-all on focus for number inputs — tap to replace, not tap to position cursor
 document.addEventListener('focus', e => {
@@ -27,6 +28,9 @@ document.addEventListener('click', e => {
 
 // Initialize the app
 async function init() {
+  // Register key cleanup on tab close (before any async work)
+  registerKeyCleanupOnUnload();
+
   // Apply saved theme before rendering
   const themeMode = await getThemeMode();
   applyTheme(themeMode);

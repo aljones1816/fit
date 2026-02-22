@@ -4,9 +4,10 @@ import { renderProgressScreen } from './ui/screens/ProgressScreen';
 import { renderStatsScreen } from './ui/screens/StatsScreen';
 import { renderMoreScreen } from './ui/screens/MoreScreen';
 import { renderProfileScreen } from './ui/screens/ProfileScreen';
+import { renderEncryptionScreen } from './ui/screens/EncryptionScreen';
 import { renderTabs } from './ui/components/Tabs';
 
-export type Route = 'workout' | 'templates' | 'progress' | 'stats' | 'more' | 'profile';
+export type Route = 'workout' | 'templates' | 'progress' | 'stats' | 'more' | 'profile' | 'encryption';
 export type TabRoute = 'workout' | 'templates' | 'progress' | 'stats' | 'more';
 
 let currentRoute: Route = 'workout';
@@ -18,11 +19,13 @@ const routes: Record<Route, () => void> = {
   stats: renderStatsScreen,
   more: renderMoreScreen,
   profile: renderProfileScreen,
+  encryption: renderEncryptionScreen,
 };
 
 // Sub-routes that live under a parent tab
 const parentTab: Partial<Record<Route, TabRoute>> = {
   profile: 'more',
+  encryption: 'more',
 };
 
 export function navigate(route: Route) {

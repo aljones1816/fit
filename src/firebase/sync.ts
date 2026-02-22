@@ -14,9 +14,14 @@ import {
   setSyncInProgress,
 } from './queue';
 import { getDB } from '../data/db';
-import { setSetting, getSetting } from '../data/queries';
+import { getSetting, setSetting } from '../data/queries';
+import { getEncryptionConfig } from '../crypto/encryptionState';
+import { getKey } from '../crypto/keyVault';
+import { encryptJson } from '../crypto/engine';
+import { makeAad } from '../crypto/codec';
+import { decryptDoc } from './migration';
 
-export type SyncStatus = 'idle' | 'syncing' | 'error';
+export type SyncStatus = 'idle' | 'syncing' | 'error' | 'locked';
 
 let _status: SyncStatus = 'idle';
 let _lastSyncedAt: number | null = null;
@@ -69,16 +74,28 @@ async function flushQueue(uid: string): Promise<void> {
   const queue = await getQueue();
   if (queue.length === 0) return;
 
+  const config = await getEncryptionConfig();
+  const key = config.enabled ? getKey() : null;
+  // If encryption is enabled but key is locked, skip push — will retry when unlocked
+  if (config.enabled && !key) return;
+
   const db = await getDB();
   const batch = writeBatch(firestore);
+  const now = Date.now();
 
   for (const item of queue) {
     const ref = doc(firestore, 'users', uid, item.entityType, item.entityId);
 
     if (item.action === 'delete') {
-      batch.set(ref, { _deleted: true, _updatedAt: item.timestamp });
+      if (key) {
+        // Encrypted tombstone — ct is empty JSON null
+        const aad = makeAad(uid, item.entityType, item.entityId);
+        const { ivB64, ctB64 } = await encryptJson({ key, aad, plaintextObj: null });
+        batch.set(ref, { v: 1, updatedAt: item.timestamp, deleted: true, iv: ivB64, ct: ctB64 });
+      } else {
+        batch.set(ref, { _deleted: true, _updatedAt: item.timestamp });
+      }
     } else {
-      // Read the latest local copy of the entity and push it
       let data: Record<string, unknown> | undefined;
       try {
         const store = item.entityType as CollectionName;
@@ -89,17 +106,28 @@ async function flushQueue(uid: string): Promise<void> {
       }
 
       if (data) {
-        batch.set(ref, stripUndefined({ ...data, _deleted: false, _updatedAt: item.timestamp }));
+        if (key) {
+          const aad = makeAad(uid, item.entityType, item.entityId);
+          const { ivB64, ctB64 } = await encryptJson({ key, aad, plaintextObj: stripUndefined(data) });
+          batch.set(ref, { v: 1, updatedAt: item.timestamp, deleted: false, iv: ivB64, ct: ctB64 });
+        } else {
+          batch.set(ref, stripUndefined({ ...data, _deleted: false, _updatedAt: item.timestamp }));
+        }
       } else {
         // Entity gone locally — treat as delete
-        batch.set(ref, { _deleted: true, _updatedAt: item.timestamp });
+        if (key) {
+          const aad = makeAad(uid, item.entityType, item.entityId);
+          const { ivB64, ctB64 } = await encryptJson({ key, aad, plaintextObj: null });
+          batch.set(ref, { v: 1, updatedAt: now, deleted: true, iv: ivB64, ct: ctB64 });
+        } else {
+          batch.set(ref, { _deleted: true, _updatedAt: item.timestamp });
+        }
       }
     }
   }
 
   await batch.commit();
 
-  // Remove all flushed items from the queue
   for (const item of queue) {
     await removeFromQueue(item.id);
   }
@@ -109,36 +137,66 @@ async function flushQueue(uid: string): Promise<void> {
 
 async function pullChanges(uid: string): Promise<void> {
   if (!firestore || !isFirebaseConfigured) return;
+
+  const config = await getEncryptionConfig();
+  const key = config.enabled ? getKey() : null;
+  // If encryption enabled but locked, skip pull
+  if (config.enabled && !key) return;
+
   const lastPulledAt = await getSetting<number>('sync.lastPulledAt') ?? 0;
   const db = await getDB();
 
-  // Build a map of pending local queue items so we can skip stale remote data
   const queue = await getQueue();
   const pendingByEntityId = new Map(queue.map(q => [q.entityId, q.timestamp]));
 
   setSyncInProgress(true);
   try {
     for (const col of COLLECTIONS) {
-      const q = query(userCol(uid, col), where('_updatedAt', '>', lastPulledAt));
+      // Query field differs: encrypted docs use 'updatedAt', plaintext use '_updatedAt'
+      const tsField = (config.enabled && key) ? 'updatedAt' : '_updatedAt';
+      const q = query(userCol(uid, col), where(tsField, '>', lastPulledAt));
       const snap = await getDocs(q);
 
       for (const docSnap of snap.docs) {
         const remote = docSnap.data() as Record<string, unknown>;
         const entityId = docSnap.id;
-        const remoteTs = (remote._updatedAt as number) ?? 0;
 
-        // Skip if local has a more recent pending change
+        // Determine timestamps — support both doc formats
+        const remoteTs = (
+          (remote.updatedAt as number) ??
+          (remote._updatedAt as number) ??
+          0
+        );
+
         const localTs = pendingByEntityId.get(entityId);
         if (localTs && localTs >= remoteTs) continue;
 
-        if (remote._deleted) {
-          await db.delete(col, entityId);
-        } else {
-          // Strip sync metadata before writing locally
-          const { _deleted: _d, _updatedAt: _u, ...localData } = remote;
-          // @ts-expect-error dynamic store access
-          await db.put(col, localData);
+        const isEncrypted = typeof remote.ct === 'string' && typeof remote.iv === 'string';
+
+        if (isEncrypted && key) {
+          // Decrypt and apply
+          if (remote.deleted) {
+            await db.delete(col, entityId);
+          } else {
+            const payload = await decryptDoc(uid, col, entityId, key, remote);
+            if (payload) {
+              // @ts-expect-error dynamic store access
+              await db.put(col, payload);
+            }
+            // else: decryption failed — skip, don't corrupt local data
+          }
+        } else if (!isEncrypted && !config.enabled) {
+          // Plaintext mode — strip sync metadata before writing locally
+          if (remote._deleted) {
+            await db.delete(col, entityId);
+          } else {
+            const { _deleted: _d, _updatedAt: _u, ...localData } = remote;
+            // @ts-expect-error dynamic store access
+            await db.put(col, localData);
+          }
         }
+        // Mismatched mode (encrypted doc but key locked, or plaintext doc when E2EE on):
+        // skip — data will be re-pulled after state is consistent
       }
     }
   } finally {
@@ -152,6 +210,11 @@ async function pullChanges(uid: string): Promise<void> {
 
 async function initialPush(uid: string): Promise<void> {
   if (!firestore || !isFirebaseConfigured) return;
+
+  const config = await getEncryptionConfig();
+  const key = config.enabled ? getKey() : null;
+  if (config.enabled && !key) return; // locked — skip initial push
+
   const db = await getDB();
   const now = Date.now();
   const batch = writeBatch(firestore);
@@ -162,7 +225,13 @@ async function initialPush(uid: string): Promise<void> {
       const id = item.id as string;
       if (!id) continue;
       const ref = doc(firestore, 'users', uid, col, id);
-      batch.set(ref, stripUndefined({ ...item, _deleted: false, _updatedAt: now }), { merge: true });
+      if (key) {
+        const aad = makeAad(uid, col, id);
+        const { ivB64, ctB64 } = await encryptJson({ key, aad, plaintextObj: stripUndefined(item) });
+        batch.set(ref, { v: 1, updatedAt: now, deleted: false, iv: ivB64, ct: ctB64 }, { merge: true });
+      } else {
+        batch.set(ref, stripUndefined({ ...item, _deleted: false, _updatedAt: now }), { merge: true });
+      }
     }
   }
 
@@ -175,8 +244,15 @@ export async function syncNow(): Promise<void> {
   if (!isFirebaseConfigured || !firestore) return;
   const user = getCurrentUser();
   if (!user) return;
-  if (!navigator.onLine) return; // offline — queue already holds changes, will flush on reconnect
+  if (!navigator.onLine) return;
   if (_status === 'syncing') return;
+
+  // If encryption enabled but locked, surface that state
+  const config = await getEncryptionConfig();
+  if (config.enabled && !getKey()) {
+    setStatus('locked');
+    return;
+  }
 
   setStatus('syncing');
   try {
@@ -194,11 +270,17 @@ export async function syncNow(): Promise<void> {
 export async function initialSync(uid: string): Promise<void> {
   if (!isFirebaseConfigured || !firestore) return;
   if (!navigator.onLine) return;
+
+  const config = await getEncryptionConfig();
+  if (config.enabled && !getKey()) {
+    setStatus('locked');
+    return;
+  }
+
   setStatus('syncing');
   try {
     const lastPulledAt = await getSetting<number>('sync.lastPulledAt');
     if (!lastPulledAt) {
-      // First time — push everything local, then pull to get any remote data
       await initialPush(uid);
     }
     await pullChanges(uid);
