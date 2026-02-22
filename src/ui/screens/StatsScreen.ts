@@ -9,7 +9,7 @@ import {
 } from '../../data/queries';
 import type { DisplayUnit, ThemeMode } from '../../data/models';
 import { showToast } from '../components/Toast';
-import { showModal } from '../components/Modal';
+import { showModal, closeModal } from '../components/Modal';
 import { renderHeatmap } from '../components/Heatmap';
 import { exportBackup, importBackup } from '../../data/backup';
 import { getCurrentUser, signIn, signUp, signOut } from '../../firebase/auth';
@@ -266,6 +266,7 @@ function showAuthModal(mode: 'signin' | 'signup') {
               await signIn(email, password);
               showToast('Signed in! Syncing your data...', 'success');
             }
+            closeModal();
             renderStatsScreen();
             return true;
           } catch (err: unknown) {
