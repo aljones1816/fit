@@ -27,3 +27,7 @@ secrets.txt
 *.njsproj
 *.sln
 *.sw?
+tmp
+
+# claude local settings
+.claude

@@ -11,7 +11,7 @@ import { lbsToKg } from '../../data/units';
 import { showToast } from '../components/Toast';
 import { showModal, closeModal } from '../components/Modal';
 import { exportBackup, importBackup } from '../../data/backup';
-import { getCurrentUser, signIn, signUp, signOut } from '../../firebase/auth';
+import { getCurrentUser, signIn, signUp, signOut, resetPassword, sendVerificationEmail } from '../../firebase/auth';
 import { isFirebaseConfigured } from '../../firebase/init';
 import { navigate } from '../../router';
 import { getEncryptionStatus } from '../../crypto/encryptionState';
@@ -37,7 +37,9 @@ export async function renderMoreScreen() {
   const syncSubtitle = !isFirebaseConfigured
     ? 'Cloud sync not configured'
     : user
-      ? `Signed in as ${user.email ?? user.uid}`
+      ? user.emailVerified
+        ? `Signed in as ${user.email ?? user.uid}`
+        : `${user.email ?? user.uid} — email not verified`
       : 'Sign in to enable cloud sync';
 
   screen.innerHTML = `
@@ -142,10 +144,33 @@ export async function renderMoreScreen() {
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 function handleSyncRow(user: ReturnType<typeof getCurrentUser>) {
-  if (user) {
-    handleSignOut();
-  } else {
+  if (!user) {
     showAuthModal('signin');
+  } else if (!user.emailVerified) {
+    showModal({
+      title: 'Verify Your Email',
+      body: `A verification email was sent to ${user.email}. Check your inbox and click the link to verify your account.`,
+      buttons: [
+        {
+          text: 'Resend Email',
+          className: 'btn btn-primary',
+          closeOnClick: false,
+          onClick: async () => {
+            try {
+              await sendVerificationEmail();
+              showToast('Verification email sent', 'success');
+              return true;
+            } catch {
+              showToast('Failed to send — try again later', 'error');
+              return false;
+            }
+          },
+        },
+        { text: 'Sign Out', className: 'btn btn-secondary', closeOnClick: false, onClick: () => { closeModal(); handleSignOut(); } },
+      ],
+    });
+  } else {
+    handleSignOut();
   }
 }
 
@@ -165,6 +190,10 @@ function showAuthModal(mode: 'signin' | 'signup') {
       <input type="password" id="auth-password" class="input" placeholder="${isSignUp ? 'Choose a password' : 'Your password'}"
         style="width:100%;" autocomplete="${isSignUp ? 'new-password' : 'current-password'}" />
     </div>
+    ${!isSignUp ? `
+    <div style="text-align:right;margin-top:0.35rem;">
+      <a id="forgot-pw-link" href="#" style="font-size:0.8rem;color:var(--accent);">Forgot password?</a>
+    </div>` : ''}
     <div id="auth-error" style="color:var(--danger);font-size:0.8rem;margin-top:0.5rem;display:none;"></div>
   `;
 
@@ -177,6 +206,7 @@ function showAuthModal(mode: 'signin' | 'signup') {
         text: title,
         className: 'btn btn-primary',
         closeOnClick: false,
+
         onClick: async () => {
           const emailEl = document.getElementById('auth-email') as HTMLInputElement | null;
           const passwordEl = document.getElementById('auth-password') as HTMLInputElement | null;
@@ -190,7 +220,13 @@ function showAuthModal(mode: 'signin' | 'signup') {
           try {
             if (isSignUp) {
               await signUp(email, password);
-              showToast('Account created! Syncing your data…', 'success');
+              const verificationSent = await sendVerificationEmail().then(() => true).catch(() => false);
+              showToast(
+                verificationSent
+                  ? 'Account created! Check your email to verify your address.'
+                  : 'Account created!',
+                'success',
+              );
             } else {
               await signIn(email, password);
               showToast('Signed in! Syncing your data…', 'success');
@@ -207,6 +243,67 @@ function showAuthModal(mode: 'signin' | 'signup') {
       },
     ],
   });
+
+  if (!isSignUp) {
+    setTimeout(() => {
+      document.getElementById('forgot-pw-link')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        closeModal();
+        showForgotPasswordModal();
+      });
+    }, 50);
+  }
+}
+
+function showForgotPasswordModal() {
+  const content = document.createElement('div');
+  content.innerHTML = `
+    <p style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:0.75rem;">
+      Enter your email and we'll send you a link to reset your password.
+    </p>
+    <div style="margin-bottom:0.25rem;">
+      <label style="display:block;font-weight:500;margin-bottom:0.25rem;">Email</label>
+      <input type="email" id="reset-email" class="input" placeholder="you@example.com"
+             style="width:100%;" autocomplete="email" />
+    </div>
+    <div id="reset-error" style="color:var(--danger);font-size:0.8rem;margin-top:0.5rem;display:none;"></div>
+  `;
+
+  showModal({
+    title: 'Reset Password',
+    body: content,
+    buttons: [
+      { text: 'Cancel', className: 'btn btn-secondary', onClick: () => {} },
+      {
+        text: 'Send Reset Email',
+        className: 'btn btn-primary',
+        onClick: async () => {
+          const emailEl = document.getElementById('reset-email') as HTMLInputElement | null;
+          const errorEl = document.getElementById('reset-error');
+          const email = emailEl?.value.trim() ?? '';
+
+          if (!email) {
+            if (errorEl) { errorEl.textContent = 'Please enter your email.'; errorEl.style.display = 'block'; }
+            return false;
+          }
+
+          try {
+            await resetPassword(email);
+            showToast('Check your email for a reset link', 'success', 5000);
+            return true;
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            if (errorEl) { errorEl.textContent = friendlyAuthError(msg); errorEl.style.display = 'block'; }
+            return false;
+          }
+        },
+      },
+    ],
+  });
+
+  setTimeout(() => {
+    (document.getElementById('reset-email') as HTMLInputElement | null)?.focus();
+  }, 100);
 }
 
 function handleSignOut() {

@@ -3,6 +3,8 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged as firebaseOnAuthStateChanged,
+  sendPasswordResetEmail,
+  sendEmailVerification,
   User,
 } from 'firebase/auth';
 import { auth, isFirebaseConfigured } from './init';
@@ -33,6 +35,17 @@ export async function signIn(email: string, password: string): Promise<User> {
 export async function signOut(): Promise<void> {
   if (!isFirebaseConfigured || !auth) return;
   await firebaseSignOut(auth);
+}
+
+export async function resetPassword(email: string): Promise<void> {
+  if (!isFirebaseConfigured || !auth) throw new Error('Cloud sync is not configured.');
+  await sendPasswordResetEmail(auth, email);
+}
+
+export async function sendVerificationEmail(): Promise<void> {
+  const user = auth?.currentUser;
+  if (!user) throw new Error('Not signed in.');
+  await sendEmailVerification(user);
 }
 
 export function onAuthStateChanged(callback: (user: User | null) => void): () => void {
