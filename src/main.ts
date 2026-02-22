@@ -1,6 +1,7 @@
 import './ui/styles/base.css';
 import './ui/styles/theme.css';
 import 'uplot/dist/uPlot.min.css';
+import '@tabler/icons-webfont/dist/tabler-icons.min.css';
 import { initRouter } from './router';
 import { registerServiceWorker } from './pwa/registerSW';
 import { initializeDefaultExercises, deduplicateExercises } from './data/initDefaults';

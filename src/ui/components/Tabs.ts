@@ -3,11 +3,11 @@ import { navigate } from '../../router';
 type Route = 'workout' | 'templates' | 'progress' | 'history' | 'stats';
 
 const tabs: Array<{ route: Route; label: string; icon: string }> = [
-  { route: 'workout', label: 'Workout', icon: '💪' },
-  { route: 'templates', label: 'Templates', icon: '📋' },
-  { route: 'progress', label: 'Progress', icon: '📈' },
-  { route: 'history', label: 'History', icon: '🕐' },
-  { route: 'stats', label: 'Stats', icon: '📊' },
+  { route: 'workout', label: 'Workout', icon: 'ti-barbell' },
+  { route: 'templates', label: 'Templates', icon: 'ti-clipboard-list' },
+  { route: 'progress', label: 'Progress', icon: 'ti-trending-up' },
+  { route: 'history', label: 'History', icon: 'ti-history' },
+  { route: 'stats', label: 'Stats', icon: 'ti-chart-bar' },
 ];
 
 export function renderTabs(activeRoute: Route) {
@@ -19,7 +19,7 @@ export function renderTabs(activeRoute: Route) {
       class="tab-button ${tab.route === activeRoute ? 'active' : ''}"
       data-route="${tab.route}"
     >
-      <span class="tab-icon">${tab.icon}</span>
+      <span class="tab-icon"><i class="ti ${tab.icon}"></i></span>
       <span>${tab.label}</span>
     </button>
   `).join('');
