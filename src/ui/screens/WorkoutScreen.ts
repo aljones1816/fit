@@ -28,6 +28,7 @@ import { renderTimer, renderTimerFab, attachTimerHandlers, initTimer, showTimerS
 import { trySyncNow } from '../../firebase/sync';
 import { showPlateCalculator } from '../components/PlateCalculator';
 import { buildShareText } from '../shareFormatter';
+import { fuzzyFilterExercises } from '../../data/fuzzySearch';
 
 let activeSession: Session | null = null;
 let sessionSets: SetEntry[] = [];
@@ -557,11 +558,9 @@ async function handleAddExerciseToWorkout() {
   const renderList = (query: string) => {
     const list = body.querySelector(`#${listId}`)!;
     const footer = body.querySelector<HTMLElement>('#create-ex-footer')!;
-    const filtered = allExercises
-      .filter(ex => ex.name.toLowerCase().includes(query.toLowerCase()))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const results = fuzzyFilterExercises(allExercises, query);
 
-    list.innerHTML = filtered.map(ex => {
+    list.innerHTML = results.map(({ ex, fuzzy }) => {
       const already = inWorkout.has(ex.id);
       const isSelected = ex.id === selectedExerciseId;
       return `
@@ -577,7 +576,11 @@ async function handleAddExerciseToWorkout() {
           "
         >
           <span style="font-size:0.9rem;">${ex.name}</span>
-          ${already ? '<span style="font-size:0.75rem;">already added</span>' : ''}
+          ${already
+            ? '<span style="font-size:0.75rem;">already added</span>'
+            : fuzzy && !isSelected
+              ? '<span style="font-size:0.75rem;color:var(--text-secondary);">≈</span>'
+              : ''}
         </div>
       `;
     }).join('');

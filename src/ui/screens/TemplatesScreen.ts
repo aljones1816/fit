@@ -20,6 +20,7 @@ import { showModal } from '../components/Modal';
 import { trySyncNow } from '../../firebase/sync';
 import { navigate } from '../../router';
 import { DEFAULT_EXERCISES } from '../../data/seedData';
+import { fuzzyFilterExercises } from '../../data/fuzzySearch';
 
 let exercises: Exercise[] = [];
 let templates: Template[] = [];
@@ -102,17 +103,19 @@ function renderExercisesList() {
   if (exercises.length === 0) {
     container.innerHTML = '<p class="text-muted">No exercises yet. Load defaults or add your own.</p>';
   } else {
-    const filteredExercises = exercises
-      .filter(ex => ex.name.toLowerCase().includes(searchQuery))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const results = searchQuery
+      ? fuzzyFilterExercises(exercises, searchQuery)
+      : [...exercises]
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map(ex => ({ ex, fuzzy: false as const }));
 
-    if (filteredExercises.length === 0) {
+    if (results.length === 0) {
       container.innerHTML = '<p class="text-muted">No exercises match your search.</p>';
     } else {
-      container.innerHTML = filteredExercises
-        .map(ex => `
+      container.innerHTML = results
+        .map(({ ex, fuzzy }) => `
           <div style="padding: 0.5rem; border-bottom: 0.5px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 0.9rem;">${ex.name}</span>
+            <span style="font-size: 0.9rem;">${ex.name}${fuzzy ? ' <span style="font-size:0.75rem;color:var(--text-secondary);">≈</span>' : ''}</span>
             <button class="btn btn-danger" data-exercise-id="${ex.id}" style="padding: 0.3rem 0.6rem; min-height: 32px; font-size: 0.875rem;">
               Delete
             </button>
@@ -353,17 +356,17 @@ function showTemplateEditorModal(template?: Template) {
     const container = body.querySelector<HTMLElement>('#ex-selector-list')!;
     const footer = body.querySelector<HTMLElement>('#create-ex-footer')!;
     const q = query.toLowerCase().trim();
-    const filtered = q ? sorted.filter(ex => ex.name.toLowerCase().includes(q)) : sorted;
-    // Checked items float to the top; within each group keep alphabetical order
+    const results = q ? fuzzyFilterExercises(sorted, query) : sorted.map(ex => ({ ex, fuzzy: false }));
+    // Checked items float to the top; within each group preserve fuzzy order
     const visible = [
-      ...filtered.filter(ex => selectedIds.has(ex.id)),
-      ...filtered.filter(ex => !selectedIds.has(ex.id)),
+      ...results.filter(({ ex }) => selectedIds.has(ex.id)),
+      ...results.filter(({ ex }) => !selectedIds.has(ex.id)),
     ];
 
     if (visible.length === 0) {
       container.innerHTML = `<div style="padding:0.75rem;color:var(--text-secondary);font-size:0.9rem;">No matches</div>`;
     } else {
-      container.innerHTML = visible.map(ex => `
+      container.innerHTML = visible.map(({ ex, fuzzy }) => `
         <label style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0.75rem;cursor:pointer;border-bottom:0.5px solid var(--border-color);">
           <input
             type="checkbox"
@@ -372,6 +375,7 @@ function showTemplateEditorModal(template?: Template) {
             style="width:20px;height:20px;flex-shrink:0;"
           />
           <span style="font-size:0.95rem;">${ex.name}</span>
+          ${fuzzy ? '<span style="font-size:0.75rem;color:var(--text-secondary);margin-left:auto;">≈</span>' : ''}
         </label>
       `).join('');
 
