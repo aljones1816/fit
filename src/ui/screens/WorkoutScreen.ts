@@ -26,6 +26,7 @@ import { formatWeight, parseEnteredWeight, formatVolume } from '../../data/units
 import { renderTimer, renderTimerFab, attachTimerHandlers, initTimer, showTimerSheet, setFabSectionVisible } from '../components/Timer';
 import { trySyncNow } from '../../firebase/sync';
 import { showPlateCalculator } from '../components/PlateCalculator';
+import { buildShareText } from '../shareFormatter';
 
 let activeSession: Session | null = null;
 let sessionSets: SetEntry[] = [];
@@ -720,20 +721,19 @@ function renderWorkoutCompleteScreen(
     ? `${totalPRs} New PR${totalPRs !== 1 ? 's' : ''}!`
     : 'Workout Done!';
 
-  // Build Wordle-style share text
-  const shareLines = [
-    `💪 ${workoutTitle}`,
-    `⏱️ ${durationStr} · ${exerciseSummaries.length} exercise${exerciseSummaries.length !== 1 ? 's' : ''} · ${volumeStr} total`,
-    ...(totalPRs > 0 ? [`🏆 ${totalPRs} new PR${totalPRs !== 1 ? 's' : ''}!`] : []),
-    '',
-    ...exerciseSummaries.map(e => {
-      const prTag = e.pr ? (e.pr.e1rmPR ? ' 🏆 PR' : ' 🏆 weight PR') : '';
-      return `${e.name}: ${e.bestSet.reps} × ${e.weightDisplay}${prTag}`;
-    }),
-    '',
-    'Logged with Fit 🔥',
-  ];
-  const shareText = shareLines.join('\n');
+  const shareText = buildShareText({
+    title: workoutTitle,
+    durationMs,
+    endedAt: Date.now(),
+    exercises: exerciseSummaries.map(e => ({
+      name: e.name,
+      reps: e.bestSet.reps ?? 0,
+      weightLbs: e.bestSet.weightLbs ?? 0,
+      isPR: !!e.pr,
+    })),
+    totalPRs,
+    displayUnit: unit,
+  });
 
   const canShare = !!navigator.share;
 
