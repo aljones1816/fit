@@ -222,9 +222,11 @@ async function renderBodyweightSection() {
       ctx.lineTo(u.bbox.left + u.bbox.width, yPx);
       ctx.stroke();
       ctx.fillStyle = warningColor + 'cc';
-      ctx.font = '13px -apple-system, sans-serif';
+      const dpr = window.devicePixelRatio || 1;
+      ctx.font = `${Math.round(13 * dpr)}px -apple-system, sans-serif`;
       ctx.textAlign = 'left';
-      ctx.fillText(`Goal: ${goalDisplay} ${displayUnit}`, u.bbox.left + 4, yPx - 4);
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(`Goal: ${goalDisplay} ${displayUnit}`, u.bbox.left + 4 * dpr, yPx - 4 * dpr);
       ctx.restore();
     } : null;
 
