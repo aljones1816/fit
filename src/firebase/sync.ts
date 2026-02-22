@@ -15,8 +15,9 @@ import {
 } from './queue';
 import { getDB } from '../data/db';
 import { getSetting, setSetting } from '../data/queries';
-import { getEncryptionConfig } from '../crypto/encryptionState';
+import { getEncryptionConfig, setEncryptionEnabled, setMigrationState } from '../crypto/encryptionState';
 import { getKey } from '../crypto/keyVault';
+import { fetchCryptoMeta } from './cryptoMeta';
 import { encryptJson } from '../crypto/engine';
 import { makeAad } from '../crypto/codec';
 import { decryptDoc } from './migration';
@@ -270,6 +271,23 @@ export async function syncNow(): Promise<void> {
 export async function initialSync(uid: string): Promise<void> {
   if (!isFirebaseConfigured || !firestore) return;
   if (!navigator.onLine) return;
+
+  // ── New-device detection ──────────────────────────────────────────────────
+  // If this device has no local encryption state, check whether Firestore
+  // already has a crypto/meta doc (meaning the user set up E2EE on another
+  // device). If so, adopt the encrypted+locked state before proceeding.
+  const localConfig = await getEncryptionConfig();
+  if (!localConfig.enabled) {
+    const remoteMeta = await fetchCryptoMeta(uid).catch(() => null);
+    if (remoteMeta) {
+      // Account has E2EE — mark this device as encrypted+locked+migrated
+      await setEncryptionEnabled(true);
+      await setMigrationState('complete');
+      setStatus('locked');
+      return;
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────
 
   const config = await getEncryptionConfig();
   if (config.enabled && !getKey()) {
