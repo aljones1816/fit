@@ -355,7 +355,8 @@ function showTemplateEditorModal(template?: Template) {
   const renderList = (query: string) => {
     const container = body.querySelector<HTMLElement>('#ex-selector-list')!;
     const footer = body.querySelector<HTMLElement>('#create-ex-footer')!;
-    const q = query.toLowerCase().trim();
+    const trimmed = query.trim();
+    const q = trimmed.toLowerCase();
     const results = q ? fuzzyFilterExercises(sorted, query) : sorted.map(ex => ({ ex, fuzzy: false }));
     // Checked items float to the top; within each group preserve fuzzy order
     const visible = [
@@ -408,11 +409,11 @@ function showTemplateEditorModal(template?: Template) {
           "
         >
           <span style="font-size:1.1rem;font-weight:600;line-height:1;">+</span>
-          <span style="font-size:0.9rem;">Create &ldquo;${q}&rdquo;</span>
+          <span style="font-size:0.9rem;">Create &ldquo;${trimmed}&rdquo;</span>
         </div>
       `;
       footer.querySelector('#create-ex-btn')!.addEventListener('click', async () => {
-        const newEx = await createExercise(q);
+        const newEx = await createExercise(trimmed);
         sorted.push(newEx);
         sorted.sort((a, b) => a.name.localeCompare(b.name));
         selectedIds.add(newEx.id);
