@@ -51,6 +51,7 @@ const BASE: ShareWorkoutData = {
   exercises: [],
   totalPRs: 0,
   displayUnit: 'lbs',
+  totalVolumeLbs: 0,
 };
 
 // ─── Header ──────────────────────────────────────────────────────────────────

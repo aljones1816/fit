@@ -293,6 +293,15 @@ input[type="number"]::-webkit-outer-spin-button {
   display: flex;
   gap: 0.75rem;
   justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .modal-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
 }
 
 /* Utility classes */
