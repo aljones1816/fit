@@ -403,6 +403,14 @@ export async function setTimerDefault(seconds: number): Promise<void> {
   await setSetting('timer.defaultSeconds', seconds);
 }
 
+export async function getAutoStartTimer(): Promise<boolean> {
+  return (await getSetting<boolean>('timer.autoStart')) ?? true;
+}
+
+export async function setAutoStartTimer(enabled: boolean): Promise<void> {
+  await setSetting('timer.autoStart', enabled);
+}
+
 export async function getGoalWeightLbs(): Promise<number | undefined> {
   return getSetting<number>('profile.goalWeightLbs');
 }

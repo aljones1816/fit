@@ -19,12 +19,13 @@ import {
   createSession,
   deleteSetting,
   createExercise,
+  getAutoStartTimer,
 } from '../../data/queries';
 import type { Session, SetEntry, Exercise, ExerciseLast, DisplayUnit, Template, PRHit } from '../../data/models';
 import { showToast } from '../components/Toast';
 import { showModal } from '../components/Modal';
 import { formatWeight, parseEnteredWeight, formatVolume } from '../../data/units';
-import { renderTimer, renderTimerFab, attachTimerHandlers, initTimer, showTimerSheet, setFabSectionVisible } from '../components/Timer';
+import { renderTimer, renderTimerFab, attachTimerHandlers, initTimer, showTimerSheet, setFabSectionVisible, startRestTimer } from '../components/Timer';
 import { trySyncNow } from '../../firebase/sync';
 import { showPlateCalculator } from '../components/PlateCalculator';
 import { buildShareText } from '../shareFormatter';
@@ -36,6 +37,7 @@ let exercisesMap: Map<string, Exercise> = new Map();
 let exerciseLastMap: Map<string, ExerciseLast> = new Map();
 let displayUnit: DisplayUnit = 'lbs';
 let durationInterval: number | null = null;
+let confirmedSetIds: Set<string> = new Set();
 
 function startDurationClock(startedAt: number) {
   if (durationInterval !== null) clearInterval(durationInterval);
@@ -189,6 +191,7 @@ export async function renderWorkoutScreen() {
   // Load exercises
   exercisesMap.clear();
   exerciseLastMap.clear();
+  confirmedSetIds.clear();
 
   for (const exId of exerciseIds) {
     const ex = await getExercise(exId);
@@ -350,28 +353,31 @@ function renderExercises() {
           </button>
         </div>
 
-        <div style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse;">
+        <table style="width: 100%; border-collapse: collapse;">
             <thead>
               <tr style="border-bottom: 0.5px solid var(--border-color);">
-                <th style="padding: 0.5rem; text-align: left; font-size: 0.875rem;">Set</th>
-                <th style="padding: 0.5rem; text-align: left; font-size: 0.875rem;">Previous</th>
-                <th style="padding: 0.5rem; text-align: center; font-size: 0.875rem;">Reps</th>
-                <th style="padding: 0.5rem; text-align: center; font-size: 0.875rem;">Weight</th>
-                <th style="padding: 0.5rem; width: 40px;"></th>
+                <th style="padding: 0.25rem 0.5rem; text-align: center; font-size: 0.8rem; color: var(--text-secondary); font-weight: 500; width: 52px;">Set</th>
+                <th style="padding: 0.25rem; text-align: center; font-size: 0.8rem; color: var(--text-secondary); font-weight: 500;">Reps</th>
+                <th style="padding: 0.25rem; text-align: center; font-size: 0.8rem; color: var(--text-secondary); font-weight: 500;">Weight</th>
+                <th style="padding: 0.25rem; width: 48px;"></th>
               </tr>
             </thead>
             <tbody>
               ${sets
                 .map((set, idx) => {
                   const prevSet = last && last.sets[idx];
+                  const confirmed = confirmedSetIds.has(set.id);
                   return `
-                <tr style="border-bottom: 0.5px solid var(--border-color); ${
+                <tr data-action="toggle-delete" style="border-bottom: 0.5px solid var(--border-color); ${
                   set.reps === undefined || set.weightLbs === undefined ? 'opacity: 0.5;' : ''
                 }">
-                  <td style="padding: 0.5rem; font-weight: 500;">${idx + 1}</td>
-                  <td style="padding: 0.5rem; color: var(--text-secondary); font-size: 0.875rem;">
-                    ${prevSet ? `${prevSet.reps} × ${formatWeight(prevSet.weightLbs, displayUnit)}` : '—'}
+                  <td style="padding: 0.25rem 0.5rem; text-align: center; vertical-align: middle; width: 52px;">
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+                      <span style="font-weight: 600; font-size: 0.95rem;">${idx + 1}</span>
+                      <span style="font-size: 0.68rem; color: var(--text-secondary); white-space: nowrap;">
+                        ${prevSet ? `${prevSet.reps}×${formatWeight(prevSet.weightLbs, displayUnit)}` : '—'}
+                      </span>
+                    </div>
                   </td>
                   <td style="padding: 0.25rem; text-align: center;">
                     <input
@@ -393,19 +399,30 @@ function renderExercises() {
                       data-field="weight"
                       placeholder="0"
                       step="${displayUnit === 'kg' ? '0.25' : '0.5'}"
-                      style="width: 80px; padding: 0.5rem; text-align: center; min-height: 44px; cursor: pointer;"
+                      style="width: 75px; padding: 0.5rem; text-align: center; min-height: 44px; cursor: pointer;"
                       readonly
                     />
                   </td>
-                  <td style="padding: 0.25rem; text-align: center;">
+                  <td style="padding: 0.25rem; text-align: center; width: 48px; position: relative;">
+                    <button
+                      class="btn ${confirmed ? '' : 'btn-secondary'}"
+                      data-set-id="${set.id}"
+                      data-action="confirm-set"
+                      style="padding: 0.5rem; min-height: 44px; min-width: 44px; font-size: 1.1rem;
+                             ${confirmed ? 'background: var(--success); color: white; border-color: var(--success);' : ''}"
+                    >${confirmed ? '✓' : '○'}</button>
                     <button
                       class="btn btn-danger"
                       data-set-id="${set.id}"
                       data-action="delete-set"
-                      style="padding: 0.5rem; min-height: 44px; font-size: 1.2rem; min-width: 44px;"
-                    >
-                      🗑
-                    </button>
+                      style="
+                        position: absolute; top: -8px; right: -8px;
+                        width: 22px; height: 22px;
+                        padding: 0; font-size: 0.65rem; border-radius: 50%;
+                        display: none; align-items: center; justify-content: center;
+                        z-index: 2; line-height: 1; min-height: unset; min-width: unset;
+                      "
+                    >×</button>
                   </td>
                 </tr>
               `;
@@ -413,7 +430,6 @@ function renderExercises() {
                 .join('')}
             </tbody>
           </table>
-        </div>
 
         ${last && last.sets.length > sets.length ? `<div class="text-muted mt-1" style="font-size: 0.875rem;">+${last.sets.length - sets.length} more last time</div>` : ''}
       </div>
@@ -446,8 +462,38 @@ function renderExercises() {
     btn.addEventListener('click', handleAddSet);
   });
 
+  // Tap anywhere in a set row (except inputs/buttons) to reveal the delete badge for 3 seconds
+  let _deleteBadgeTimer: number | null = null;
+  container.querySelectorAll<HTMLElement>('tr[data-action="toggle-delete"]').forEach(row => {
+    row.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('input, button, select')) return;
+
+      const badge = row.querySelector<HTMLElement>('[data-action="delete-set"]');
+      if (!badge) return;
+
+      // Hide any other open badges
+      container.querySelectorAll<HTMLElement>('[data-action="delete-set"]').forEach(b => {
+        if (b !== badge) b.style.display = 'none';
+      });
+      if (_deleteBadgeTimer !== null) { clearTimeout(_deleteBadgeTimer); _deleteBadgeTimer = null; }
+
+      const visible = badge.style.display === 'flex';
+      badge.style.display = visible ? 'none' : 'flex';
+      if (!visible) {
+        _deleteBadgeTimer = window.setTimeout(() => { badge.style.display = 'none'; }, 3000);
+      }
+    });
+  });
+
   container.querySelectorAll('[data-action="delete-set"]').forEach(btn => {
-    btn.addEventListener('click', handleDeleteSet);
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleDeleteSet(e);
+    });
+  });
+
+  container.querySelectorAll('[data-action="confirm-set"]').forEach(btn => {
+    btn.addEventListener('click', handleConfirmSet);
   });
 }
 
@@ -475,6 +521,75 @@ async function handleSetInputChange(e: Event) {
   }
 }
 
+async function handleConfirmSet(e: Event) {
+  const btn = e.currentTarget as HTMLElement;
+  const setId = btn.dataset.setId!;
+  const set = sessionSets.find(s => s.id === setId);
+  if (!set) return;
+
+  // Toggle: unconfirm if already confirmed
+  if (confirmedSetIds.has(setId)) {
+    confirmedSetIds.delete(setId);
+    btn.textContent = '○';
+    btn.classList.add('btn-secondary');
+    (btn as HTMLElement).style.background = '';
+    (btn as HTMLElement).style.color = '';
+    (btn as HTMLElement).style.borderColor = '';
+    return;
+  }
+
+  if (set.reps === undefined || set.weightLbs === undefined) {
+    showToast('Enter reps and weight first', 'error');
+    return;
+  }
+
+  // Mark confirmed
+  confirmedSetIds.add(setId);
+
+  // Update button in-place (no re-render)
+  btn.textContent = '✓';
+  btn.classList.remove('btn-secondary');
+  (btn as HTMLElement).style.background = 'var(--success)';
+  (btn as HTMLElement).style.color = 'white';
+  (btn as HTMLElement).style.borderColor = 'var(--success)';
+
+  // Auto-populate next set
+  const exerciseSets = sessionSets
+    .filter(s => s.exerciseId === set.exerciseId)
+    .sort((a, b) => a.setIndex - b.setIndex);
+  const currentIdx = exerciseSets.findIndex(s => s.id === setId);
+  const nextSet = currentIdx >= 0 ? exerciseSets[currentIdx + 1] : undefined;
+
+  if (nextSet) {
+    nextSet.reps = set.reps;
+    nextSet.weightLbs = set.weightLbs;
+    await updateSetEntry(nextSet);
+
+    const nextRepsInput = document.querySelector<HTMLInputElement>(
+      `input[data-set-id="${nextSet.id}"][data-field="reps"]`
+    );
+    const nextWeightInput = document.querySelector<HTMLInputElement>(
+      `input[data-set-id="${nextSet.id}"][data-field="weight"]`
+    );
+    if (nextWeightInput) {
+      nextWeightInput.value = displayUnit === 'kg'
+        ? (nextSet.weightLbs * 0.45359237).toFixed(2)
+        : nextSet.weightLbs.toFixed(1);
+    }
+    if (nextRepsInput) {
+      nextRepsInput.value = String(nextSet.reps);
+      nextRepsInput.focus();
+      nextRepsInput.select();
+    }
+    const nextRow = nextRepsInput?.closest('tr') as HTMLTableRowElement | null;
+    if (nextRow) nextRow.style.opacity = '';
+  }
+
+  // Auto-start timer if enabled
+  const autoStart = await getAutoStartTimer();
+  if (autoStart) startRestTimer();
+}
+
 async function handleAddSet(e: Event) {
   const btn = e.currentTarget as HTMLElement;
   const exerciseId = btn.dataset.exerciseId!;
@@ -485,11 +600,24 @@ async function handleAddSet(e: Event) {
   const exerciseSets = sessionSets.filter(s => s.exerciseId === exerciseId);
   const maxIndex = exerciseSets.length > 0 ? Math.max(...exerciseSets.map(s => s.setIndex)) : -1;
 
-  const newSet = await createSetEntry(activeSession.id, exerciseId, maxIndex + 1);
+  // Copy reps/weight from the last filled set
+  const lastFilled = [...exerciseSets]
+    .sort((a, b) => b.setIndex - a.setIndex)
+    .find(s => s.reps !== undefined && s.weightLbs !== undefined);
+
+  const newSet = await createSetEntry(activeSession.id, exerciseId, maxIndex + 1, lastFilled?.reps, lastFilled?.weightLbs);
   sessionSets.push(newSet);
 
   renderExercises();
-  showToast('Set added', 'info');
+
+  // Focus and select the new set's reps input
+  const newRepsInput = document.querySelector<HTMLInputElement>(
+    `input[data-set-id="${newSet.id}"][data-field="reps"]`
+  );
+  if (newRepsInput) {
+    newRepsInput.focus();
+    newRepsInput.select();
+  }
 }
 
 async function handleDeleteSet(e: Event) {
@@ -506,7 +634,6 @@ async function handleDeleteSet(e: Event) {
 async function handleEndWorkout() {
   if (!activeSession) return;
 
-  // Check for blank sets
   const blankSets = sessionSets.filter(s => s.reps === undefined || s.weightLbs === undefined);
 
   if (blankSets.length > 0) {
@@ -515,13 +642,34 @@ async function handleEndWorkout() {
       body: `You have ${blankSets.length} empty set${blankSets.length !== 1 ? 's' : ''}. Discard empty sets and finish?`,
       buttons: [
         { text: 'Go Back', className: 'btn btn-secondary', onClick: () => {} },
-        {
-          text: 'Discard & Finish',
-          className: 'btn btn-primary',
-          onClick: async () => {
-            await finishWorkout();
-          },
-        },
+        { text: 'Discard & Finish', className: 'btn btn-primary', onClick: async () => { await proceedToFinish(); } },
+      ],
+    });
+  } else {
+    await proceedToFinish();
+  }
+}
+
+async function proceedToFinish() {
+  const unconfirmed = sessionSets.filter(
+    s => s.reps !== undefined && s.weightLbs !== undefined && !confirmedSetIds.has(s.id)
+  );
+
+  if (unconfirmed.length > 0 && confirmedSetIds.size > 0) {
+    showModal({
+      title: 'Unconfirmed Sets',
+      body: `${unconfirmed.length} set${unconfirmed.length !== 1 ? 's haven\'t' : ' hasn\'t'} been marked complete. Auto-complete all and finish?`,
+      buttons: [
+        { text: 'Go Back', className: 'btn btn-secondary', onClick: () => {} },
+        { text: 'End Anyway', className: 'btn btn-secondary', onClick: async () => {
+          for (const set of unconfirmed) await deleteSetEntry(set.id);
+          sessionSets = sessionSets.filter(s => !unconfirmed.some(u => u.id === s.id));
+          await finishWorkout();
+        } },
+        { text: 'Complete All & End', className: 'btn btn-primary', onClick: async () => {
+          unconfirmed.forEach(s => confirmedSetIds.add(s.id));
+          await finishWorkout();
+        }},
       ],
     });
   } else {
@@ -657,7 +805,8 @@ async function handleAddExerciseToWorkout() {
           const setCount = last ? Math.max(last.sets.length, 1) : 3;
 
           for (let i = 0; i < setCount; i++) {
-            const newSet = await createSetEntry(activeSession.id, selectedExerciseId, i);
+            const prevSet = last?.sets[i];
+            const newSet = await createSetEntry(activeSession.id, selectedExerciseId, i, prevSet?.reps, prevSet?.weightLbs);
             sessionSets.push(newSet);
           }
 
@@ -760,6 +909,8 @@ function renderWorkoutCompleteScreen(
     ? `${totalPRs} New PR${totalPRs !== 1 ? 's' : ''}!`
     : 'Workout Done!';
 
+  const totalVolumeLbs = allFilledSets.reduce((sum, s) => sum + s.reps * s.weightLbs, 0);
+
   const shareText = buildShareText({
     title: workoutTitle,
     durationMs,
@@ -771,6 +922,7 @@ function renderWorkoutCompleteScreen(
       isPR: !!e.pr,
     })),
     totalPRs,
+    totalVolumeLbs,
     displayUnit: unit,
   });
 
@@ -885,7 +1037,8 @@ async function handleQuickStartWorkout(templateId: string) {
     const setCount = last ? Math.max(last.sets.length, 1) : 3;
 
     for (let i = 0; i < setCount; i++) {
-      await createSetEntry(session.id, exerciseId, i);
+      const prevSet = last?.sets[i];
+      await createSetEntry(session.id, exerciseId, i, prevSet?.reps, prevSet?.weightLbs);
     }
   }
 

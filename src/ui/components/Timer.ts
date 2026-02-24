@@ -67,6 +67,12 @@ export async function initTimer() {
   _timerSectionVisible = true;
 }
 
+// Resets to the default duration and starts the timer (even if already running).
+// Called by WorkoutScreen's confirm-set handler.
+export function startRestTimer(): void {
+  startTimer(true);
+}
+
 // Called by WorkoutScreen's IntersectionObserver whenever the in-page timer card
 // enters or leaves the viewport. FAB is only shown when running + scrolled away.
 export function setFabSectionVisible(visible: boolean): void {
@@ -143,24 +149,26 @@ export function closeTimerSheet(): void {
 
 // ── Internal logic ────────────────────────────────────────────────────────────
 
+function startTimer(reset: boolean = false): void {
+  if (timerInterval !== null) { clearInterval(timerInterval); timerInterval = null; }
+  if (reset) timerRemaining = timerSeconds;
+  timerState = 'running';
+  updateTimerButton('Stop');
+  timerInterval = window.setInterval(() => {
+    timerRemaining--;
+    if (timerRemaining <= 0) { timerRemaining = 0; handleTimerComplete(); }
+    updateTimerDisplay();
+  }, 1000);
+  updateTimerDisplay();
+}
+
 function handleTimerStart() {
   if (timerState === 'running') {
     if (timerInterval !== null) { clearInterval(timerInterval); timerInterval = null; }
     timerState = 'idle';
     updateTimerButton('Start');
   } else {
-    // Defensive: clear any stale interval before starting a new one
-    if (timerInterval !== null) { clearInterval(timerInterval); timerInterval = null; }
-    timerState = 'running';
-    updateTimerButton('Stop');
-    timerInterval = window.setInterval(() => {
-      timerRemaining--;
-      if (timerRemaining <= 0) {
-        timerRemaining = 0;
-        handleTimerComplete();
-      }
-      updateTimerDisplay();
-    }, 1000);
+    startTimer();
   }
 }
 

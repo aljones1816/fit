@@ -22,6 +22,7 @@ export interface ShareWorkoutData {
   exercises: ShareExercise[];
   totalPRs: number;
   displayUnit: DisplayUnit;
+  totalVolumeLbs: number;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -42,8 +43,7 @@ function formatShareWeight(weightLbs: number, displayUnit: DisplayUnit): string 
     : `${weightLbs.toFixed(1)} lb`;
 }
 
-function formatVolume(exercises: ShareExercise[], displayUnit: DisplayUnit): string {
-  const totalLbs = exercises.reduce((sum, e) => sum + e.reps * e.weightLbs, 0);
+function formatVolume(totalLbs: number, displayUnit: DisplayUnit): string {
   const value = displayUnit === 'kg'
     ? Math.round(totalLbs * 0.45359237)
     : Math.round(totalLbs);
@@ -78,7 +78,7 @@ export function buildShareText(data: ShareWorkoutData): string {
 
   const dateStr = formatShareDate(endedAt);
   const count = exercises.length;
-  const volumeStr = formatVolume(exercises, displayUnit);
+  const volumeStr = formatVolume(data.totalVolumeLbs, displayUnit);
 
   const lines: string[] = [
     `💪 ${title.toUpperCase()}  •  ${dateStr}`,

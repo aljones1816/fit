@@ -5,6 +5,8 @@ import {
   setThemeMode,
   getSetting,
   getGoalWeightLbs,
+  getAutoStartTimer,
+  setAutoStartTimer,
 } from '../../data/queries';
 import type { DisplayUnit, ThemeMode } from '../../data/models';
 import { lbsToKg } from '../../data/units';
@@ -21,13 +23,14 @@ export async function renderMoreScreen() {
   const screen = document.getElementById('screen');
   if (!screen) return;
 
-  const [displayUnit, themeMode, lastBackup, goalLbs, user, encStatus] = await Promise.all([
+  const [displayUnit, themeMode, lastBackup, goalLbs, user, encStatus, autoStartTimer] = await Promise.all([
     getDisplayUnit(),
     getThemeMode(),
     getSetting<number>('backup.lastExportedAt'),
     getGoalWeightLbs(),
     Promise.resolve(getCurrentUser()),
     getEncryptionStatus(),
+    getAutoStartTimer(),
   ]);
 
   const goalDisplay = goalLbs != null
@@ -114,6 +117,13 @@ export async function renderMoreScreen() {
             <button class="btn btn-small ${themeMode === 'system' ? 'btn-primary' : 'btn-secondary'}" id="theme-system-btn">System</button>
           </div>
         </div>
+        <div class="mt-2">
+          <label style="display:block;font-weight:500;margin-bottom:0.5rem;">Auto-start Rest Timer</label>
+          <div class="flex gap-1">
+            <button class="btn btn-small ${autoStartTimer ? 'btn-primary' : 'btn-secondary'}" id="autotimer-on-btn">On</button>
+            <button class="btn btn-small ${!autoStartTimer ? 'btn-primary' : 'btn-secondary'}" id="autotimer-off-btn">Off</button>
+          </div>
+        </div>
       </div>
 
       <div class="section-header mb-1">About</div>
@@ -139,6 +149,9 @@ export async function renderMoreScreen() {
   document.getElementById('theme-dark-btn')?.addEventListener('click', () => handleThemeChange('dark'));
   document.getElementById('theme-light-btn')?.addEventListener('click', () => handleThemeChange('light'));
   document.getElementById('theme-system-btn')?.addEventListener('click', () => handleThemeChange('system'));
+
+  document.getElementById('autotimer-on-btn')?.addEventListener('click', () => handleAutoTimerChange(true));
+  document.getElementById('autotimer-off-btn')?.addEventListener('click', () => handleAutoTimerChange(false));
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -389,5 +402,10 @@ async function handleUnitChange(unit: DisplayUnit) {
 async function handleThemeChange(mode: ThemeMode) {
   await setThemeMode(mode);
   showToast(`Theme set to ${mode}`, 'success');
+  renderMoreScreen();
+}
+
+async function handleAutoTimerChange(enabled: boolean) {
+  await setAutoStartTimer(enabled);
   renderMoreScreen();
 }
